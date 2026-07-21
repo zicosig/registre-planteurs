@@ -1,0 +1,13 @@
+{
+  "appId": "ci.terrain.registreplanteurs",
+  "appName": "Registre Planteurs",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}

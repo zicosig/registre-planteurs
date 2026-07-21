@@ -1,0 +1,20 @@
+{
+  "name": "registre-planteurs",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Registre planteurs & plantations — application de terrain hors ligne, chiffrée",
+  "scripts": {
+    "android:add": "cap add android && node scripts/harden.js",
+    "sync": "cap sync android && node scripts/harden.js",
+    "open": "cap open android",
+    "apk:debug": "cd android && ./gradlew assembleDebug",
+    "apk:release": "cd android && ./gradlew assembleRelease"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/core": "^6.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0"
+  }
+}
