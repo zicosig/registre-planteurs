@@ -1,0 +1,17 @@
+{
+  "name": "Registre Planteurs & Plantations",
+  "short_name": "Registre",
+  "description": "Fiches de recrutement, codes planteurs, géolocalisation, paiements et documents — fonctionne hors ligne.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f5f0",
+  "theme_color": "#15803d",
+  "lang": "fr",
+  "icons": [
+    { "src": "icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
