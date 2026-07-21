@@ -2349,6 +2349,66 @@ window.__APP__=function(){
     ecranConnexion();
   }
 })();
+  // ---------- Synchronisation Supabase ----------
+
+window.synchroniserPlanteurs = async function(){
+
+  try {
+
+    var planteursLocaux = load(KEY_DATA, []) || [];
+
+    if(!planteursLocaux.length){
+      alert("Aucun planteur à synchroniser");
+      return;
+    }
+
+
+    const donnees = planteursLocaux.map(function(p){
+
+      return {
+
+        code_planteur: p.code_planteur || p.code || null,
+        nom: p.nom || "",
+        telephone: p.telephone || "",
+        village: p.village || "",
+        lattitude: p.lattitude || p.latitude || null,
+        longitude: p.longitude || null,
+        superficie: p.superficie || 0,
+        argent_id: p.argent_id || null
+
+      };
+
+    });
+
+
+    const {data,error} = await supabaseClient
+      .from("planteurs")
+      .upsert(donnees,{
+        onConflict:"code_planteur"
+      });
+
+
+    if(error){
+      console.error(error);
+      alert("Erreur : "+error.message);
+      return;
+    }
+
+
+    alert(
+      donnees.length+
+      " planteur(s) synchronisé(s)"
+    );
+
+
+  } catch(err){
+
+    console.error(err);
+    alert(err.message);
+
+  }
+
+};
 </script>
 </body>
 </html>
