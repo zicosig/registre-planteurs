@@ -729,17 +729,17 @@
 
 <div id="toast"></div>
 <div id="printArea"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
 <script>
+/* Connexion Supabase — remplacer par supabase.js local avant de compiler l'APK */
 const SUPABASE_URL = "https://qmfnnykocjmwemsbinhf.supabase.co";
-
 const SUPABASE_KEY = "sb_publishable_GfjFAsmjicRFYwIBRfsNwg_Cs2xKm1v";
-
-window.supabaseClient = supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_KEY
-);
+window.supabaseClient = (typeof supabase !== "undefined")
+  ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: true }
+    })
+  : null;
 </script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -2011,6 +2011,9 @@ window.__APP__=function(){
      ========================================================= */
   function majTout(){ render(); majListes(); majSelectPaie(); renderPaiements(); renderMapAll(); }
 
+  /* rafraîchissement du registre après une synchronisation */
+  window.addEventListener("rp:donnees",function(){ records=load(KEY_DATA,[])||[]; syncCounters(); majTout(); });
+
   $("btnOrg").onclick=function(e){ e.preventDefault(); demanderOrg(); };
   $("orgMark").onclick=function(){ demanderOrg(); };
   majOrg();
@@ -2347,68 +2350,177 @@ window.__APP__=function(){
     ecranPremier();
   } else {
     ecranConnexion();
-  } // ---------- Synchronisation Supabase ----------
+  }
+})();
+</script>
+<script>
+/* =============================================================
+   SYNCHRONISATION SUPABASE — version corrigée
+   À placer dans un <script> À PART, après le script de sécurité,
+   juste avant </body>. Surtout PAS à l'intérieur du bloc
+   de sécurité : les fonctions load() et KEY_DATA n'y existent pas.
+   ============================================================= */
+(function () {
+  "use strict";
 
-window.synchroniserPlanteurs = async function(){
+  var K_DATA = "rp_planteurs_v2";     // clé du registre dans le coffre chiffré
+  var K_SESSION = "rp_session_sb";    // jeton de session Supabase
+  var K_SYNC = "rp_dernier_sync";     // horodatage du dernier échange
 
-  try {
+  function sb() { return window.supabaseClient; }
+  function dit(msg) { console.log("[sync] " + msg); }
 
-    var planteursLocaux = load(KEY_DATA, []) || [];
+  /* ---------- lecture / écriture du registre local ----------
+     SEC est global : accessible depuis n'importe quel script. */
+  function registre() { return SEC.get(K_DATA) || []; }
+  function ecrire(l) { SEC.set(K_DATA, l); SEC.flush(); }
 
-    if(!planteursLocaux.length){
-      alert("Aucun planteur à synchroniser");
-      return;
+  /* ---------- session ---------- */
+  function session() {
+    var s = SEC.get(K_SESSION);
+    if (s && s.refresh_token) {
+      return sb().auth.refreshSession({ refresh_token: s.refresh_token })
+        .then(function (r) {
+          if (r.error) throw new Error("Session expirée, reconnectez-vous");
+          SEC.set(K_SESSION, { refresh_token: r.data.session.refresh_token, email: s.email });
+          return r.data.user;
+        });
     }
-
-
-    const donnees = planteursLocaux.map(function(p){
-
-      return {
-
-        code_planteur: p.code_planteur || p.code || null,
-        nom: p.nom || "",
-        telephone: p.telephone || "",
-        village: p.village || "",
-        lattitude: p.lattitude || p.latitude || null,
-        longitude: p.longitude || null,
-        superficie: p.superficie || 0,
-        argent_id: p.argent_id || null
-
-      };
-
-    });
-
-
-    const {data,error} = await supabaseClient
-      .from("planteurs")
-      .upsert(donnees,{
-        onConflict:"code_planteur"
+    var email = prompt("Adresse e-mail du compte Supabase :");
+    if (!email) return Promise.reject(new Error("Connexion annulée"));
+    var mdp = prompt("Mot de passe :");
+    if (!mdp) return Promise.reject(new Error("Connexion annulée"));
+    return sb().auth.signInWithPassword({ email: email.trim(), password: mdp })
+      .then(function (r) {
+        if (r.error) throw new Error(r.error.message);
+        SEC.set(K_SESSION, { refresh_token: r.data.session.refresh_token, email: email.trim() });
+        return r.data.user;
       });
-
-
-    if(error){
-      console.error(error);
-      alert("Erreur : "+error.message);
-      return;
-    }
-
-
-    alert(
-      donnees.length+
-      " planteur(s) synchronisé(s)"
-    );
-
-
-  } catch(err){
-
-    console.error(err);
-    alert(err.message);
-
   }
 
-};
+  function profil() {
+    return sb().from("profils").select("id, organisation_id, nom, role").single()
+      .then(function (r) {
+        if (r.error) throw new Error("Profil absent : ajoutez une ligne dans la table profils pour ce compte");
+        return r.data;
+      });
+  }
+
+  /* ---------- conversion : fiche locale -> ligne Supabase ----------
+     Les noms des champs locaux sont ceux du formulaire :
+     codePlanteur, tel, ville, plantation.superficie, geo.lat / geo.lng.  */
+  function versLigne(f, p) {
+    var g = f.geo || {}, pl = f.plantation || {};
+    var nom = f.type === "cooperative"
+      ? (f.raison || "")
+      : ((f.nom || "") + " " + (f.prenom || "")).trim();
+    return {
+      id: f.id,
+      organisation_id: p.organisation_id,
+      agent_id: p.id,
+      code_planteur: f.codePlanteur || null,
+      code_plantation: f.codePlantation || null,
+      nom_complet: nom,
+      ville: f.ville || null,
+      telephone: f.tel || null,
+      superficie: pl.superficie != null ? Number(pl.superficie) : null,
+      latitude: g.lat != null ? Number(g.lat) : null,
+      longitude: g.lng != null ? Number(g.lng) : null,
+      donnees: f,
+      supprime: false,
+      modifie_le: f.modifie || f.cree || new Date().toISOString()
+    };
+  }
+
+  function versFiche(ligne) {
+    var f = ligne.donnees || {};
+    f.id = ligne.id;
+    f.codePlanteur = ligne.code_planteur;
+    f.codePlantation = ligne.code_plantation;
+    f.modifie = ligne.modifie_le;
+    return f;
+  }
+
+  /* ---------- synchronisation ---------- */
+  function synchroniser() {
+    if (!sb()) return Promise.reject(new Error("Client Supabase absent"));
+    if (!navigator.onLine) return Promise.reject(new Error("Aucune connexion internet"));
+
+    var p, depuis = SEC.get(K_SYNC) || "1970-01-01T00:00:00.000Z";
+    var envoyees = 0;
+
+    return session().then(profil).then(function (pr) {
+      p = pr;
+      var locales = registre();
+      var aEnvoyer = locales.filter(function (f) {
+        return (f.modifie || f.cree || "") > depuis;
+      });
+      envoyees = aEnvoyer.length;
+      if (!aEnvoyer.length) return { error: null };
+      return sb().from("planteurs")
+        .upsert(aEnvoyer.map(function (f) { return versLigne(f, p); }), { onConflict: "id" });
+    }).then(function (r) {
+      if (r && r.error) throw new Error(r.error.message);
+      return sb().from("planteurs").select("*")
+        .gt("modifie_le", depuis).order("modifie_le", { ascending: true });
+    }).then(function (r) {
+      if (r.error) throw new Error(r.error.message);
+
+      var locales = registre(), index = {}, ajouts = 0, majs = 0;
+      locales.forEach(function (f, i) { index[f.id] = i; });
+
+      r.data.forEach(function (ligne) {
+        var i = index[ligne.id];
+        if (i === undefined) { locales.push(versFiche(ligne)); ajouts++; return; }
+        if ((ligne.modifie_le || "") > (locales[i].modifie || "")) {
+          locales[i] = versFiche(ligne); majs++;
+        }
+      });
+
+      locales = locales.filter(function (f) { return !f.supprime; });
+      ecrire(locales);
+      SEC.set(K_SYNC, new Date().toISOString());
+
+      window.dispatchEvent(new CustomEvent("rp:donnees"));
+      return { envoyees: envoyees, ajouts: ajouts, majs: majs };
+    });
+  }
+
+  /* ---------- bouton dans la barre d'outils ---------- */
+  function poserBouton() {
+    var tb = document.querySelector("header .toolbar");
+    if (!tb || document.getElementById("btnSync")) return;
+    if (!window.SEC || !SEC.user()) return;     // on attend l'ouverture de session
+    var b = document.createElement("button");
+    b.id = "btnSync"; b.className = "btn sm"; b.type = "button";
+    b.textContent = "Synchroniser";
+    b.onclick = function () {
+      b.disabled = true; b.textContent = "Synchronisation…";
+      synchroniser().then(function (res) {
+        b.textContent = "Synchroniser"; b.disabled = false;
+        alert(res.envoyees + " fiche(s) envoyée(s), " + res.ajouts + " reçue(s), " + res.majs + " mise(s) à jour.");
+      }).catch(function (e) {
+        b.textContent = "Synchroniser"; b.disabled = false;
+        dit(e.message);
+        alert("Synchronisation impossible : " + e.message);
+      });
+    };
+    tb.insertBefore(b, tb.firstChild);
+  }
+
+  var t = setInterval(function () {
+    poserBouton();
+    if (document.getElementById("btnSync")) clearInterval(t);
+  }, 500);
+
+  window.addEventListener("online", function () {
+    if (window.SEC && SEC.user() && SEC.get(K_SESSION)) {
+      synchroniser().catch(function () { /* nouvel essai plus tard */ });
+    }
+  });
+
+  window.synchroniserPlanteurs = synchroniser;
 })();
- 
 </script>
 </body>
 </html>
