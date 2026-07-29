@@ -2363,6 +2363,12 @@ window.__APP__=function(){
     return m;
   }
   function creerCompteLocal(email, mdp, user){
+    /* Le coffre local n'est qu'un cache (les vraies données sont sur Supabase).
+       On repart d'un coffre vide : sinon la clé du nouveau compte ne peut pas
+       déchiffrer un ancien coffre laissé par un compte précédent -> faux
+       "Identifiant ou mot de passe incorrect". */
+    try{ localStorage.removeItem(K_VAULT); }catch(e){}
+    try{ ecrireComptes(comptes().filter(function(u){ return u.login!==(email||"").trim().toLowerCase(); })); }catch(e){}
     return creerCompte({login:email, nom:(user&&user.email)||email, role:"agent", mdp:mdp})
       .then(function(){ return ouvrirSession(email, mdp); });
   }
@@ -2652,7 +2658,7 @@ window.__APP__=function(){
       var __d=document.getElementById("secDiag");
       if(__d){
         var __ok=!!sbClient();
-        __d.textContent = "Registre cloud v8 — " + (__ok ? "serveur cloud pret" : "serveur NON charge (mode hors-ligne)");
+        __d.textContent = "Registre cloud v9 — " + (__ok ? "serveur cloud pret" : "serveur NON charge (mode hors-ligne)");
         __d.style.color = __ok ? "#2e7d32" : "#b45309";
       }
     }catch(__e){}
