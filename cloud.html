@@ -2346,6 +2346,7 @@ window.__APP__=function(){
     m=m||"";
     if(/Invalid login credentials/i.test(m)) return "E-mail ou mot de passe incorrect.";
     if(/Email not confirmed/i.test(m)) return "E-mail non confirmé : vérifiez votre boîte de réception.";
+    if(/already registered|already exists|User already/i.test(m)) return "Un compte existe déjà pour cette adresse. Connectez-vous.";
     if(/network|fetch|Failed/i.test(m)) return "Connexion au serveur impossible. Vérifiez votre réseau et réessayez.";
     return m;
   }
@@ -2430,6 +2431,44 @@ window.__APP__=function(){
       }).catch(function(e){ erreur(traduireAuth(e.message)); go.disabled=false; });
     };
   }
+  /* Créer un compte (inscription Supabase) */
+  function ecranInscription(){
+    erreur("");
+    document.getElementById("secCorps").innerHTML=
+      '<h2>Créer un compte</h2>'+
+      '<p class="hint">Inscrivez votre adresse e-mail et un mot de passe. Ce compte vous donnera accès à votre espace depuis n\'importe quel appareil.</p>'+
+      '<label>Adresse e-mail</label><input id="inMail" type="email" inputmode="email" autocomplete="username">'+
+      '<label>Mot de passe (8 caractères minimum)</label><input id="inM1" type="password" autocomplete="new-password">'+
+      '<label>Confirmation</label><input id="inM2" type="password" autocomplete="new-password">'+
+      '<button class="go" id="inGo">Créer le compte</button>'+
+      '<button type="button" id="inBack" class="lien">Retour à la connexion</button>';
+    document.getElementById("inBack").onclick=function(){ ecranConnexion(); };
+    var go=document.getElementById("inGo");
+    go.onclick=function(){
+      var mail=val("inMail").toLowerCase(), m1=val("inM1"), m2=val("inM2");
+      if(!mail) return erreur("Indiquez votre adresse e-mail.");
+      if(m1.length<8) return erreur("Le mot de passe doit faire au moins 8 caractères.");
+      if(m1!==m2) return erreur("Les deux mots de passe ne correspondent pas.");
+      if(!navigator.onLine || !sbClient()) return erreur("Une connexion internet est nécessaire pour créer un compte.");
+      erreur(""); go.disabled=true;
+      sbClient().auth.signUp({ email:mail, password:m1 }).then(function(r){
+        if(r.error) throw new Error(traduireAuth(r.error.message));
+        if(r.data && r.data.session){
+          return ouvrirOuCreerLocal(mail, m1, r.data.user).then(function(){
+            try{ SEC.set(K_SB_SESS, { refresh_token:r.data.session.refresh_token, email:mail }); }catch(e){}
+            demarrer();
+            if(window.synchroniserPlanteurs){ window.synchroniserPlanteurs().catch(function(e){ console.log("[sync] "+e.message); }); }
+          });
+        }
+        document.getElementById("secCorps").innerHTML=
+          '<h2>Vérifiez votre e-mail</h2>'+
+          '<p class="hint">Un e-mail de confirmation vient d\'être envoyé à <b>'+mail+'</b>. Ouvrez le lien qu\'il contient, puis revenez ici pour vous connecter.</p>'+
+          '<button type="button" class="go" id="inOk">Retour à la connexion</button>';
+        document.getElementById("inOk").onclick=function(){ ecranConnexion(); };
+      }).catch(function(e){ erreur(traduireAuth(e.message)); go.disabled=false; });
+    };
+    document.getElementById("inMail").focus();
+  }
   function ecranConnexion(msg){
     ov.style.display="flex";
     document.getElementById("secCorps").innerHTML=
@@ -2438,8 +2477,10 @@ window.__APP__=function(){
       '<label>Adresse e-mail</label><input id="secLog" type="email" inputmode="email" autocomplete="username">'+
       '<label>Mot de passe</label><input id="secMdp" type="password" autocomplete="current-password">'+
       '<button class="go" id="secGo">Se connecter</button>'+
-      '<button type="button" class="lien" id="secForgot">Mot de passe oublié ?</button>';
+      '<button type="button" class="lien" id="secForgot">Mot de passe oublié ?</button>'+
+      '<button type="button" class="lien" id="secSignup">Pas encore de compte ? Créer un compte</button>';
     document.getElementById("secForgot").onclick=function(){ ecranReset(); };
+    document.getElementById("secSignup").onclick=function(){ ecranInscription(); };
     var go=document.getElementById("secGo");
     go.onclick=function(){
       erreur(""); go.disabled=true;
