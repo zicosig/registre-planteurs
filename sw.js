@@ -2,7 +2,7 @@
    Incrémentez VERSION à chaque mise en ligne d'une nouvelle version
    du fichier index.html : c'est ce qui déclenche la mise à jour
    sur les téléphones des agents. */
-const VERSION = "rp-2026-07-29-1";
+const VERSION = "rp-2026-07-29-cloud-v8";
 const SOCLE = [
   "./",
   "./index.html",
