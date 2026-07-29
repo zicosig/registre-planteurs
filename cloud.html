@@ -1,0 +1,2769 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registre Planteurs &amp; Plantations</title>
+<meta name="theme-color" content="#9A5A2A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icone-192.png">
+<link rel="icon" href="icone-192.png">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root{
+    --paper:#f5f5f0; --surface:#ffffff; --ink:#1a1a15; --muted:#6b6b60; --line:#e4e3da;
+    --green:#9A5A2A; --green-d:#5A2E12; --green-h:#7A3F18; --green-bg:#f7efe6;
+    --amber:#a16207; --amber-bg:#fdf6e3; --red:#b91c1c; --red-bg:#fef2f2;
+    --blue:#1d4ed8; --blue-bg:#eff4ff;
+    --focus:#7A3F18;
+    --mono: ui-monospace,'SF Mono','Cascadia Code','Segoe UI Mono',Menlo,Consolas,monospace;
+    --sans: system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    --radius:10px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:var(--sans);background:var(--paper);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1240px;margin:0 auto;padding:24px 20px 64px}
+
+  header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .mark{width:40px;height:40px;border-radius:9px;flex:0 0 auto;background:#fff;border:1px solid var(--line);overflow:hidden;
+    display:grid;place-items:center;color:#fff;font-weight:800;font-size:16px;letter-spacing:.5px;box-shadow:0 1px 2px rgba(0,0,0,.15)}
+  h1{font-size:19px;margin:0;font-weight:700;letter-spacing:-.2px}
+  .sub{font-size:12.5px;color:var(--muted);margin-top:1px}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+  .banner{display:none;font-size:12.5px;background:var(--amber-bg);border:1px solid #eadcae;color:#7a5a12;padding:8px 12px;border-radius:8px;margin-bottom:12px}
+  .banner.show{display:block}
+
+  /* Onglets */
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px;flex-wrap:wrap}
+  .tab{background:none;border:none;border-bottom:2px solid transparent;padding:9px 14px;font:inherit;font-size:13.5px;font-weight:600;
+    color:var(--muted);cursor:pointer;border-radius:6px 6px 0 0}
+  .tab:hover{color:var(--ink);background:rgba(20,83,45,.04)}
+  .tab.on{color:var(--green-d);border-bottom-color:var(--green)}
+  .tab .pill{font-size:11px;background:var(--line);color:var(--muted);border-radius:20px;padding:1px 7px;margin-left:6px;font-weight:700}
+  .tab.on .pill{background:var(--green);color:#fff}
+  .panel{display:none}
+  .panel.on{display:block}
+
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,360px);gap:20px;align-items:start}
+  @media (max-width:980px){.grid{grid-template-columns:1fr}}
+
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 1px 2px rgba(20,20,15,.03);margin-bottom:18px}
+  .card-h{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:8px}
+  .card-h h2{font-size:12.5px;margin:0;text-transform:uppercase;letter-spacing:.7px;color:var(--green-d);font-weight:700}
+  .card-b{padding:16px}
+  .sticky{position:sticky;top:16px}
+
+  .field{margin-bottom:13px}
+  label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;letter-spacing:.2px}
+  label .req{color:var(--red)}
+  input,select,textarea{width:100%;font-family:var(--sans);font-size:14.5px;color:var(--ink);padding:9px 11px;border:1px solid var(--line);
+    border-radius:8px;background:#fff;transition:border-color .12s,box-shadow .12s}
+  textarea{min-height:64px;resize:vertical}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--focus);box-shadow:0 0 0 3px rgba(22,101,52,.12)}
+  input.err,select.err{border-color:var(--red);background:var(--red-bg)}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:4px}
+  .hint.bad{color:var(--red)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  @media (max-width:620px){.row2,.row3{grid-template-columns:1fr}}
+
+  fieldset{border:none;padding:0;margin:0 0 4px}
+  .sect{border-top:1px dashed var(--line);margin-top:6px;padding-top:14px}
+  .sect:first-of-type{border-top:none;margin-top:0;padding-top:0}
+  .sect-t{font-size:11.5px;text-transform:uppercase;letter-spacing:.8px;font-weight:700;color:var(--green-d);margin-bottom:12px;
+    display:flex;align-items:center;gap:8px}
+  .sect-t span.n{width:18px;height:18px;border-radius:5px;background:var(--green-bg);color:var(--green-d);display:grid;place-items:center;font-size:10.5px}
+
+  .btn{font-family:var(--sans);font-size:13.5px;font-weight:600;padding:9px 14px;border-radius:8px;border:1px solid var(--line);
+    background:#fff;color:var(--ink);cursor:pointer;transition:background .12s,border-color .12s}
+  .btn:hover{background:#faf9f5}
+  .btn.primary{background:var(--green);border-color:var(--green);color:#fff;width:100%;padding:11px}
+  .btn.primary:hover{background:var(--green-h)}
+  .btn.sm{padding:5px 9px;font-size:12px}
+  .btn.ghost{background:transparent}
+  .btn.danger{color:var(--red);border-color:#eecccc}
+  .btn.danger:hover{background:var(--red-bg)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btnrow{display:flex;gap:8px;flex-wrap:wrap}
+
+  /* Segmented */
+  .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{flex:1;background:#fff;border:none;padding:9px 10px;font:inherit;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
+  .seg button+button{border-left:1px solid var(--line)}
+  .seg button.on{background:var(--green-bg);color:var(--green-d)}
+
+  /* Aperçu codes */
+  .pv{display:flex;flex-direction:column;gap:12px}
+  .pvbox{background:var(--green-bg);border:1px solid #d6e7dc;border-radius:9px;padding:11px 13px}
+  .pvbox .k{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--green-d);font-weight:700}
+  .pvbox .v{font-family:var(--mono);font-size:19px;font-weight:700;margin-top:3px;letter-spacing:.5px}
+  .pvbox .v.dim{color:#9aa39c;font-weight:500}
+  .codes-visual{display:flex;flex-direction:column;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:9px;background:#fff}
+  .codes-visual svg{display:block}
+  .codes-visual .cap{font-size:11px;color:var(--muted);font-family:var(--mono)}
+
+  /* Complétude */
+  .chk{list-style:none;padding:0;margin:0;font-size:12.5px}
+  .chk li{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px dashed var(--line)}
+  .chk li:last-child{border-bottom:none}
+  .chk .dot{width:16px;height:16px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;font-size:10px;color:#fff;background:#cfcfc4}
+  .chk li.ok .dot{background:var(--green)}
+  .chk li.ok{color:var(--ink)}
+  .chk li{color:var(--muted)}
+  .bar{height:6px;background:var(--line);border-radius:20px;overflow:hidden;margin:6px 0 12px}
+  .bar i{display:block;height:100%;background:var(--green);transition:width .25s}
+
+  /* Documents */
+  .drop{border:1.5px dashed #cfd6cd;border-radius:9px;padding:18px;text-align:center;color:var(--muted);font-size:13px;cursor:pointer;background:#fcfcfa}
+  .drop.over{border-color:var(--green);background:var(--green-bg);color:var(--green-d)}
+  .doclist{list-style:none;padding:0;margin:12px 0 0;font-size:13px}
+  .doclist li{display:flex;align-items:center;gap:10px;padding:8px;border:1px solid var(--line);border-radius:8px;margin-bottom:8px;background:#fff}
+  .doclist .thumb{width:38px;height:38px;border-radius:6px;background:var(--paper);display:grid;place-items:center;overflow:hidden;flex:0 0 auto;
+    font-size:10px;font-weight:700;color:var(--muted)}
+  .doclist .thumb img{width:100%;height:100%;object-fit:cover}
+  .doclist .meta{flex:1;min-width:0}
+  .doclist .nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .doclist .sz{font-size:11.5px;color:var(--muted)}
+  .doclist select{width:auto;font-size:11.5px;padding:4px 6px}
+
+  .photobox{display:flex;gap:12px;align-items:center}
+  .photo{width:76px;height:76px;border-radius:9px;border:1px solid var(--line);background:var(--paper);display:grid;place-items:center;
+    overflow:hidden;flex:0 0 auto;font-size:11px;color:var(--muted)}
+  .photo img{width:100%;height:100%;object-fit:cover}
+
+  /* Table */
+  .table-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+  .search{position:relative;flex:1;min-width:200px}
+  .search input{padding-left:32px}
+  .search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted)}
+  .tscroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:700;
+    padding:9px 12px;border-bottom:1px solid var(--line);background:#fbfbf7;white-space:nowrap}
+  td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:middle}
+  tbody tr:hover{background:#fcfcf8}
+  .code{font-family:var(--mono);font-weight:700;font-size:13px}
+  .code.plant{color:var(--green-d)}
+  .code.tel{font-weight:500}
+  .cell-name{font-weight:600}
+  .cell-sub{font-size:11.5px;color:var(--muted)}
+  .copy{background:none;border:none;color:var(--muted);cursor:pointer;padding:2px 4px;font-size:12px;border-radius:4px}
+  .copy:hover{background:var(--line);color:var(--ink)}
+  .rowact{display:flex;gap:5px;justify-content:flex-end}
+  .empty{padding:36px 20px;text-align:center;color:var(--muted);font-size:13.5px}
+  .empty .big{font-weight:600;color:var(--ink);margin-bottom:4px;font-size:14.5px}
+  .count-pill{font-size:11.5px;color:var(--muted);background:var(--paper);border:1px solid var(--line);border-radius:20px;padding:2px 9px}
+
+  .badge{display:inline-block;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;padding:2px 7px;border-radius:20px}
+  .badge.ok{background:var(--green-bg);color:var(--green-d)}
+  .badge.warn{background:var(--amber-bg);color:var(--amber)}
+  .badge.info{background:var(--blue-bg);color:var(--blue)}
+  .badge.bad{background:var(--red-bg);color:var(--red)}
+
+  /* Carte */
+  #mapForm,#mapAll{height:280px;border-radius:9px;border:1px solid var(--line);z-index:0}
+  #mapAll{height:520px}
+  .mapnote{font-size:12px;color:var(--amber);background:var(--amber-bg);border:1px solid #eadcae;padding:7px 10px;border-radius:8px;margin-top:8px;display:none}
+  .mapnote.show{display:block}
+
+  /* Modale */
+  .overlay{position:fixed;inset:0;background:rgba(20,20,15,.45);display:none;align-items:flex-start;justify-content:center;z-index:900;padding:24px 16px;overflow:auto}
+  .overlay.show{display:flex}
+  .modal{background:var(--surface);border-radius:12px;max-width:820px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.2)}
+  .modal-h{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;position:sticky;top:0;background:#fff;border-radius:12px 12px 0 0}
+  .modal-h h3{margin:0;font-size:15px}
+  .modal-b{padding:18px}
+  .x{background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:2px 6px}
+  .dl{display:grid;grid-template-columns:150px 1fr;gap:6px 14px;font-size:13.5px;margin:0}
+  .dl dt{color:var(--muted);font-size:12px;font-weight:600}
+  .dl dd{margin:0}
+  @media (max-width:560px){.dl{grid-template-columns:1fr;gap:2px 0}.dl dd{margin-bottom:8px}}
+
+  .menu{position:relative;display:inline-block}
+  .menu-pop{position:absolute;right:0;top:calc(100% + 5px);background:#fff;border:1px solid var(--line);border-radius:9px;
+    box-shadow:0 8px 24px rgba(0,0,0,.1);padding:5px;min-width:190px;display:none;z-index:100}
+  .menu-pop.show{display:block}
+  .menu-pop button{display:block;width:100%;text-align:left;background:none;border:none;font:inherit;font-size:13px;padding:8px 10px;
+    border-radius:6px;cursor:pointer;color:var(--ink)}
+  .menu-pop button:hover{background:var(--paper)}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:9px;padding:12px 14px}
+  .stat .k{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);font-weight:700}
+  .stat .v{font-size:22px;font-weight:700;margin-top:2px;letter-spacing:-.5px}
+  .stat .u{font-size:12px;color:var(--muted);font-weight:500}
+
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;font-size:13.5px;
+    padding:10px 16px;border-radius:8px;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;z-index:1000;max-width:90vw;text-align:center}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.warn{background:var(--red)}
+  .autosave{font-size:11.5px;color:var(--muted)}
+  .foot{margin-top:24px;font-size:11.5px;color:var(--muted);text-align:center}
+
+  /* Impression */
+  #printArea{display:none}
+  @media print{
+    body{background:#fff}
+    .wrap,#toast,.overlay{display:none !important}
+    #printArea{display:block;padding:0;font-size:12px}
+    #printArea .pfiche{page-break-after:always;padding:0 0 18px}
+    #printArea h2{font-size:15px;margin:0 0 2px}
+    #printArea table{font-size:10.5px}
+    #printArea th,#printArea td{border:1px solid #ccc;padding:4px 6px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="mark" id="orgMark" title="Definir l'organisation"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOsAAABwCAYAAAD/q4dVAAAvfUlEQVR42u19eVhT57b32m8SNkKIISbMIgilVLBa59l6OksRQanod6y2OBy+ansYtPd8596Hcu493z0qg50+j1artvcoiGUQsXMtdaxah4pKFQQVIUIMMSRISPLu7w98020MkAnYEdbz5CmWZJO11/qt6V1rbQo4SBhj+k7JFx6nv12nnrelzmj+O1XTjfCWusrRbkz7jLvyBk8AAN3Ns0l838gbhjtVI7q7NnkPHTwuHwDAy3/k1wAA3iHRF8U+I6oRQjr2+w+khPCi3vo4dGTUqesUlYV7k2+GyUSlJXJU8VYhk9eg7JHvNsUtKa+t+Xlb/gYdPC5/mF+AtoNyPzpU6nsfCWXVEr/QS+bvK1qRzMcvPOe+cNESTW/Lu7Go0NuL+kEtjN9itKQLluR95dotNJJufq0nORs9ZN95SIcrhvkFaOV3285IpJJ275Doi13xPHXuy16+8xe0mesBF4ji0pfZX7BH6Pbj/7lvDlBF9am4e4o7Q1obr7+ku3k2ydJn9U1XaWv/jpuAB4x3mK4rZdYLxBVhE2adNgdvWlowLzu7ju9MQWKM6aLCfMGCRUu0FADD/v/K62derr94Yj4xRt3xfb8DwxA35BDfXv4jv7akyPsL9gidDVqMMX2gNMVobpis5Zvw3hPfAp8IXXeGSy8QV4RGPtUiGTnhK7ZcS4pX8yczz3MKuP0OVuJF/RMSWywJzFxYVEsN3aE32v333AQ86OrzlpSZDh6XHzR6aom5MJ3hRYtX1qOE7TsM5P8p5bVRLXWVoy0ZJVuMkT33hM033zfyBhYG/CNswqzTljyQQ3xnZqL01p1Ubu5NY0982ytrNwEPAAC6+6wtsm4sKvTmAmip/gQplZWlp7J+Dy2V8tqomycOZDhDYM4itmWmg8flPx239k8IIR3GmLZHeAyTicr+926KRA8YY7r2VHm8uaL2JjhtAS8B7vi5S/dmZIQY2CCzNWpie2fC952LFf+LhPJck7U5cItWJPPnb/uE11+gpfobpJaUtT8V1dwDk/8KfCJ0dPC4/OCp87K9fUMvMwx2s1Voaamp/Ny8PAMxTNraMykNpw4mcwGgDxkUNAQofN+kwNLJC98ImxKbX1K8mj8/fqvBkWtbMshc4dsScPm+kTfEIdHvhU6KKSbyLilezZ8Xt6XPQdunYGVbVwJSxc/7d3JZaERwbK9qFwAAKAqAMVdWrvLMoCHgJh2uC4t5K0kaPqnU3uukpabys3NyeFw0yD0RyYcJcAMmvbojcPKCdKIDfR0e9wlYMcb0wbdGGuZtqTMSkKrqKt8z3KkawXWhCXwidAGTXt0xfGriGsKLrcIhRur0wd3Lcc0PW1xBWYeMnnc19NmkBRK/0EtpacE8e8JfhgGKYbAbAMC5fRsudCVvtid3RdD2FfF7+w+UFK82VU8V1afizu3bsMEVQGoO1AMpIbwf3eMpRwQkkUraFTXc9yaS8fNNQG0sKvRmF/9s8gQUMBgDPMjxx/xa+uE/ASBJXV9Fsyu4XASqpSozqT4DQHLTjerna06WvRc6KaaYorL0AFkMRf1ezXcpz4oxpklBwpVCP3auRizowbdGGl79+LpTjmwwxvSvpR/+U3fzbBKX7gNRTrZH1RSn8CydfdrjYTuBi+lfDn2+GNf8sMUcsI5+9z6NOtwQ3O/AIAqK1NHB4/LHxr/zhjPy+X7xrAyTiSjqd296reC9fFcI/QhQVV5Ryqcmx60ZPiU2397Qt6v87cF13jhf/D5Y8jJ9CUz2f2/g4cpnRo9XsD2qMN4+j2rZw5ru4a6ak2XtAPt3snnva8DZC1Bzr0uaanC5ode/g9O1pGhFMp+isjDGmD5f/P7OmvKP8/VNV2muAbUr5RD4ROieejZuTdiU2PwDKSE8ZwEVACA3L8+AMaYPpITwxsa/84Z08sI3REGROrYSsH+29H3Z72H/2/zVFc/mQCWKODrY05MAtaayPNze0LdLRXtw3FW0IpkfNiU2/4lF700QBUXqwEXI/J4yaAjQwePyw6bE5qelpvLZ5+Uu4VlTAyS8hO07DEp5bdS5fRu+cEZuSm6SPd6HfYPNFdT82iSsCZj06o7hU2Lzi1Yk81/92Plnaial1a+kwqbE5iuqT92vKf84X11fRXfFpzkf1ngi8993d11RUKTuiUXvTSBADYuOqe4Vz8A6+pD4hV5SVJ9KIry7iocl5CYdrgueOi8b4B3IEYlwbl9Efs7KT0tWrTQmbN9hqDlZlqT4ef9OZ3tSc9BaKgD01HrWFfDvd2DQDRutDHpydNnY+HfeSA2Q8HLqFfzerPaRdrv58VsNiupTcWzAWhOKsX92hERBkabjGUeKSbYS+VtKeW3UtYL3zvTEO5dIFBRpOnt2ZuTV656VnZ+ePrh7ueLn/VvYQHVUodihWk+etifrbO5Vyb87CwV9B1S2lzmQEsKThk8qNfcy7O9nKTR2BlB1w0YrpZPj1kjDJ5UWrUjm9xVQAQD8ExJb9hfsEUr8Qi8p5bUTXAWwN/Bw5YTgcWWhk2KKD6SE8CgKdfRZTcVR70DCul8Ofb74TuWRbHHrJYmlENPRpL6n95FD/Ob7Aq1siN7T0vvI7zoUt2hSTCJHFc+89u6Y9CCpoS+Aak6kkkg87PXLF2mpSGCV4gAA+MnEAABgie/m+wKtvFkFo4M9PTsUt+j2di0o1HoYOWq0qZLprKqvo7yf3L9tB333oqSr9yrUepCKBODu7mmStbxZZZH/ize12ic9lKZrEb6tua/d/f2Ro0brJq7dKUYI6TodVVafxe18R4CaHiQ1YIzp2z9/kYNrfkim71bR4KTwrCvvYQmYZAwKAMBXIK6QSCXtFr2ZQuku0Ktm08HjgIyXqe4LtOLop19FCOn2F+wRIoQ0fa2w8+O3GkqKV/OJhwWwHBKLgiIfMkajPGQnhkdPvgEAQMa/LPHsCwCEb7ebZ5NE8Hufc9GKX/kecR/zAPoHrPPjtxoaiwq9peGTSmsqyy9dOQgnzQErCorUXbyp1Y4e5enZfF+g9RwmPkFLhyuCAMDoy1SMHxpYCgDQFuD+EgCAUqF0l4lawEtMzQboHKfz8lTFeA0D0AHAUO11ia3gJUCVTl74BkJI11hU6E1RfReJ2O1ZGSYTAZXFMBi7VR/518mW899F9nYIw64csse5LM2g2mJw2EWf/p6qSA2Q8PIalEbS6aSur6LZAHUm36bPMgwFFMVAPxPJYUnNo/m+QAsAIBkmPuEhHa7weiL876GjXrnFTiFs5ZnMxbLbHi/e1Go9NdclANAlcBVqPWiFI5UTZswsezpu7Z8OlKYY+6M3mG8P08UrVxoTAAznSz/855mjR4aPQLfo3gZpT6NqqQES3uyPEykAAEPHbPfpAoHgmF6vBwAgP/PdKtoBACreKmTYQmedf/Yr5TUojfsL9ggnvrpkV+nOzdAmk80Rh40+PM00qrb7EZ4BAKgkIcya+Qpl6Jjtzv79dIFA8DP1XSsuN8CLMW7MD998CfO21BkJrxhjGlEUJ45P/BMSW9JSU/lhU2LzTx/c7e4LAOPnLt1rSS5FK5L5KIYPuNwAKOZ3FWbzT2SNvvmaLetLD175GOM/Ka+feRlVXfEmLaDq+irakreVigQwMsjTk/SGM5mZiIpHhr6+R5StQC0qzBeQPtc7lUeyu8sx7M0LpCIB6IaNVvqHhCl8RoR/Z96HmRog4a3/aKvI70LlPSYzU+AMz8qlIgZ7OsdcScf8OSFkZNSp6wxjH99c5bk7KlqRzI8PDMJMZqbAEc9KUVn60hI5wuUGYJ+Lsuen63+7GCtvVgHxtgAAXqHjlOTsvS8r5g6BtWhFMj9h+w5DbwGVVCj9Q8JMnTTmnjNu/lZjb/dgcoFKilfzK94qZGbOjaf6c4ayv8CJYvjQ26FmTWV5+KWP36plbyZRVJ+KI6Cl716UsFsK+xOoNoGVfFFbK5bWeFJivWRD9J7mI1n9NTvI9nLZOTkDCiyP5LUDgFfzbSWkn/3KtVtoUcbGVVRWlt6RKK7PwEoEp5TXRh3f9fcKZ3lUEvKKgiJ1KOwPKewcZX/BHmFCYpK+P28OuzTfVWj6OBJpvCdy6IulaVyh/QV7hMd//rf79m7E6FewkiOanHoF/9y+DReUv5REOAuoWuFI5TMTxz8U8nJNOZTy2ihSeU0NkPCoRcuogQBapbw2isikv9eZ9CdoAQCcvSSv18BK8tTzxe/vrP/tYmxr7VmJowfLJOz1jZ6ZQbxp0Ypkfvz2HUb2hr/+9iwkkgAAmLJwVTIJz/tiHKpf+M7MRFRWFq45WZZ05cfSj/xDwhQjJjz3LuGb/B4GiXtgJWEgUdqugGrt4TK70kuqa1z0piRPPrdvw4Vzp3+RemquS7xCxymDnhxdFjx1XrbEL/TSgZQQnrNmXLkR+mYigCym5U7tqGsF750hNQnSM02OLQZSOuAyYCXD49nZdfxDG1fdbq0922OeKhUJTJ6zq9/rho1WTlv+19kSv9BLfdWHawuZV7zZfGuFI5V+MjGwDc3jUoghq1vOF7+/88zRI7HsowvCN5HbQAyLuUBdjqhQWVn63Nybxl9LP/ynvFllU4hrDlBLQC0pXs3Pa1AauSTwtNRU/pFDxQzGmDYHKgCAp+a6pLX2rORw4e6Pzhe/v5MAtbGo0NvV87Pc3JvGmpNlSeZAZfN9fNffK04f3L08YfsOA2kOGIRQP4N1f8EeIZXVGf7W/3bxEeHZmqOaA7WxqNCbqzlfXoOyRwPlqbkuOXP0SOyhjatuK+W1Uf4JiS0lxav5rqgAGGM6ITFJjzGmr/xY+lF3sm6tPSu5cLgsmxgqKisLu7qheiw8KwDAkbJ9a5xxTGPuUfvzYLlb75KXZ7DWQBFvc63gvTOK6lNxpCHd1RSgZNVKI0JI98uhzxdbE0ERQ/Vr6Yf/xBjTpE1wEEq9T3xLxZX58Us0D0aWErvLQa0hr9BxyodyHY56VPTt9+0YY7psx6Y1bVbk54SuX75IN9/ftkNRfQqk4ZNKXelcEmNMUwh1YIzpQxtXZVsbQXUCFmLvqtqiMcYzBgtP/QTWn37ygAfC29Fqg9J2BdSnno1bQzwqV4G6v2CPMGHREo3i31bH8O5eS7T18621ZyUn9/8O2L6ec3TEqyYAMKU7Nm32uHtR0mrDZz011yW1lQCwe8NRAtiB1PXU72EwCQVrT5XHO3phrXCkMujJ0WWk+ZnL55Lo2+/bAQC+LdqXYK+BIoBVymujGCZTQBrmuUoMk4nIvize3Wt2RVCdgP0l9Ny+DRc6vTTVwXW+HwuwMsBQCxct0WCM6borlemOelU/mRiejlv7p7S0YJ7v/AVtXL0B+wv2CMnuKO2duhhHriVvVkGL4rIOIaQ7UJpi5LLgS0vkCADgyJelE62t9ncF2Ma6GikAQHraiMHqcF+AVV60XwwAoLx+5uX7d2pCnZGnIoR062bkiLgcGh0/ebodY0y3Nl5/yZGqt1Y4UimLnFgYFh1TzfUOJ4wxPT9+qwFjTPPuVGY7yrdv9MwMV5D1YwPWE4e+anU0FGQLz9FHL/RVKJibl2dQNd0Ir//tYqyjkURs8ro/AwDMi9vC43quCgBgbQW4O5JFTiyc+OqyXVyt8j92YGUyO/MXjDHthVUxjirt+LlL9wIAcDn87Qzb1AgA4OaJAxmOKC3bu7Cf7cNVIoPXdyqPOORVvULHKWfGvvYRQGdhcpD6AKylYzvzF0ctLan+IoR0NZXl4VxXWrIh39HGDz+ZGCa+umwXl4+mCJGzYKW8NkrerAKFstWuwQlSQCRHcoPHNn0EVpK/OGppAQBCJ8UUp6UF88hyK86Ggg86jmpPlcfba6AUylZGKxypfOrZuDUAAFPnvuzFdYFvOpquBuhseAEAkEq87F5H+3Tc2j8xmZlo/rZPeINQ6gOw7i/YIwQAUDXdCHc0FBwf8dITCCEdMAsorntV8iChyouXZ9troKQSL8rTN6Q8dFJMsaY4hecKOVtu7k0jxpjm3b2WaA/fjaoO06Y/hJCu+HY9Giwq9RFY+W4V7RhjuubMTxMdzVV95y9oYwConLw8Th9bYIxpkqPb0wTBNlDho0YfRgjpvuqYOYTrwjY3zI2qDtB2dB0FazuYh35PfibHchhjOj4waHC+ta/AOj9+qwEhpKu+fHGOvR6GXWApXpHM48IAeXd0p+QLD3YI3Kjq+QkIlpSaFNMYACohMUnPdWGTzQc3TxzIAAAQeQgeAqX5yxJo/cVuYBz2RCFCSFeyaqVxcBi9j3NWUgXuzsr2ROPnLt3LMEC5Qv7yM/VdKwAAOVslSmtrKBj05OgyhJAuPS3YNUJBZgHlaEFNKxypnBn72keDXrWfwEo8jLrNeufABranb0h5p9KmusRAMlnyfeXaLWTuPbrzMuYep/ORf507ejiP08zOM2WAzk4ra6IJAHhEJ/xkYpD4hV5CCOkGvWofg5UBoIiH8Re72QRS4mHCR40+jDGmZ7SqwRWUNq9BaSTRhLVKyyaRh8CktACusTC7+Ha96XjOHIzdvdjvAUmY0jd6ZgbGmB4ci+sHsFIADPEw5h6kuzyGnfOQpWeuEAKnqzsbIQ6UphjtrX57ulEQ9OToMiYzE6WlBbvEsQV5zIRAr7Kp+m2eIkhCpEcRQjovUe6gV+1rGWKMae2duhg2UK31rp5ulCkE5srzYqylQMG0P4KyRmKNd2GHguq2zhWqXk+E/53KysJTbmW7BL8k9K84fs6mqRh1m94EWD+ZGMj5+XvvUcwgfPqW+KqmG+F+MjFcrdeDLYWWzrAoUimTBR0GAJjRqoZcF2B41qw2yM0DaGiUT/Z0o0Dd5pjSLixYyIdC4PxRFZk3PbRx1YtXb3ZYzEd74r0ViU2GmaIGTscSWR7I5HfuFMhrUFotb/LwMEdp5tx4iv9DxYkbdbVyT2SF8MzBrNK0e855KqwdAAC/8Jw7bN/B+Q0JPx35kgEAqLt6ZainjdVvS0rrag0BjjS+hI8a7VKG2WnhpwMytgXY3V5n+w7gh7s1f1hnizdlgVYsdNeGToopBgBISEzSw6IlnLeQD3uYTvDZUgUHAHjqieHYlZQ2Iz3dCNB5vqzStHvaNXQqCVMGdXiUAgAMlCMbsvGjprI8vPJEZXpbS7MHAICPbNgo8RDwUt2HLpdriIeAV30rOkw+4yh5eMva+AR0ahXQ1igu+z3k8fCuQlRWlt7cw9gKVJVboE4vEFeYijbbuc/3upnTvHLz8lraAtxfIrK29Rp+MjHQ0yYEAEALk5kpgKysx77F8MGAPlbWKWY0V51OVNdXSQAAGq2/RISzvosoKFKJrly7hUh10BrFJe/xF7tBzV3DN+TRF64QDpJKsKrpRrhK0+5pzzXEQnetJER6FID7c6uESBOIUqF0t0tRPAQgb1aB2GdEdVpa8OBy7/4Kx5uaFXY/uCYk4ql7rsi07viZBnHHbbt3BXlLR7nUniEytHDpchXPns4ldZveVPUfhEw/ghUAwJ7GAACAEVJ3d1M46AK0buY0LwAAwdMjZoEkTGnvdcQ+I6pdSchHRd8yAADqO7f59raUenjL2gbh0s9gDRvGf9GeD2o7GCC5m6vRPcUduyZkRB4CUDTVn3Ol0P+hiEJZJ7T3s0FeeM4gXPqP7C4MErp0uYrHDrO4Tsf0ej0AQOWVGrtyN3WbHob4RTazvZUrEDkfdJOOHG9rQY1QfSvqPLZRv0ANVLBwIgweaBQgc8JTLpgFLqO0uQ1KDADgI5PahVSRhwBuVF06P+jfXBSs9lrox4aoL1zGs5L5Yh/ZsFGDsh6AYHVlamh2bPsKxph2pXCQtLxVXv7tmr3XkPn6TAMAOOolGkSNq4FV5CGAqFGRRgDXqQZPFwgEAADRD1ok7aH78iqZqxWWzoYYHDYspmqwC0UUjwtp2nQgFrprUc1dwzd2e6hG+WQA1ykwOaNgIPUJegZjTMdv32F0lee6jKvjMwAAFMZ2V++d1Tbn6qAZDIP7iDYdOd4KAODR0P41UtXR9gjLTyYGVdONcK7vmWLTzLnxFACAyDfQYOsKm0HiBvnJxIB8ZFK9PQJUt+mh7uqVoa6Yx9DTJgRgcYjNZlLoQUNVrdxTd/xMAwAARWW5ROWFpCneMl+jyi1QZ4+H0N6pixl8Qlz/kNCD7mztdaQzJWwY/0WMMU0223Od6eycHB5AZweSWOiuteca4o7b9Kl7t+MAAIpX1rtEZDKZed7LkVydgFvVdCOc7B0eaIARC921Qg/H2HY0jOYDn/5Z5Ra4HLXZHhbKm1WgaroRDgCXXDGsaLiqA1sFoG7TwwQxNRsAdrlKROEXn6gCADh3o/UgUtXR9iidStPu+UPFiRsAD08vPc5Ent8T1OFRegI8aH7QOLuvJfP1maa9UxfTcPWCxJb7r2nr1NGQiKfu8fUePvsBYItd30BZI3mwHPwS159HCtA5REymRt5ft/wboQedZM91rly7hVzxKd8JiUn6T08VKW1VGAAApKqjBW1NCxmA3Q+Wrz32M61kG+SDJy1sdfByW7enL1SYe1ihB221x+X/YfbUEUWnirT3lTo3PaJtKvGr3AJ1jp5Z9jXNmvkKlZu7FXxkUr1WYfvguaZNB+yHLrsCaBkGuwE4/h3bmuvnUAC7igZYCJyWmsoH6guGtG3aQnPiRHC4VA3T8z4aojpl/53Ti4av45MJEluBSqxtW3P9HADYxfWnp5nA9eCYyUMWdLjxF/1Se66h0rR71l7+cjgAVFNZFOdDQoSQbvY0Ed/eiIJYf1JkIts2BsrInCNPyKPcl/HzGvIMz7Y1LSTD67bksS2adsYj4MmOP8yeOgIhhHSeviHl9ibMt2uqXiMFB1coPJA8c9LQwFIsDrGrMiruuE1XnqhMxxjTxbdXuESRKXVd57rg2dOe0RHZWfuyYKTAFYwUV4BOnjAvV3Vf39NYGF8c7jOUEgvdtWKfEdUIY0zrQPCTPV/E273zrPGXQ58vxhjT5InaXKYckQgDdD7o2daKMEn2ybEVQkhHHkzMdTJ0zHYHALihYirIsZU1eSs7p0KqOrry9LUZDDBUeusIahCKPURxD5yXqulGeFWt3KomHE0HY3oRIoP/CCGkeyl8XJE9XkaPaAqp6ujqyxfnIIR0rjA2RmVl4dQACY9EFNYorLmH0bTpQK9WxCvltVGuElGQB2fFLnt7r7UhmKX3NFcezaaAYnJzbxoH4dg9kUV1R74snWhNE47QjQKhG/WIpyXOFLG9jK0VQqLEJBTOzq7ju8oZHANAeTzYeWxtGMhWXqSqo8kDiV0hokAI6YiREoikxdbKmm3h5ap2UGnaPWsqy8MxxjR5hOQgdZ/rNlcezZar2h8CYk+gBQDQd+gYLA7RzXt91UkTWNl5q7kH6e5FBI5UdXTZ7g8WI4R0xJpwOhSuV/ApAGbmK3Gn7elkIvemuep0IvtZr66iRLbszmIrmNCNAqSqo08dOvwfCCEd+vb79kFIWiZiyJTy2iiVpt1T36Fj2CFuVy82CdxoU74KAICKViTzATqro12FfdZQc+XRbFdRWFLFtLaTyfxGkn+r66skZbs/WAzQ+ewcrvM9Pe+jIQAA0VOjc7A4RKfpYR8T+T37fbea7jEkkkrYvsMw+IAqy0Sehfv1Zx+vR6o6WuBm3WnLQ7rmKQVZ5MRC00J5Uh2NXfb2XmsEaCkk1LTpQKVp9yzb/cHi3Lw8gyuERyQkbAOPv5IIwZJ103Qwj+QS7H8TI0W6XbhMCxct0QAAhI565ZZY6K61JiyzZO2Rqo4u27FpM0DnovNBerSwlJN7E2OM6ds1Va/1VAXuinxkUl2Av9/P5D4j9hlSZKif1k/s3qWguqO2ht/ousvnXwQAOH7yNOfDozXffB4KABCTmHgPi0N0LZp2xhyUPRHJ4X459Pni3Lw8Q0nxas57mZLi1Xx2cc3akIz9/+SqdlMKcFT0LTPoXc3u8aqVRgqAKchev82e6S5CYqG7dvzcpXsBABK27zAgAADSgmf0jc6w98KaDgb0akX86YO7l+fm5XE+PAqLjqkGAAidFFMsFrprvYXulCXF7A68QjcK2hp+oy8cLssG+L2XlMsUN98PAwC89PpbG0VBkUp9h86uCr66vkpStmPT5sGq8KO5asL2HQalvDbqdk3Va7ea7tl9QkKObMimDwTw+5O7Y5e9vVcUFKnU2LFbVuhGQVNdFX3hcFk2xphmCnYzXM9hyTpRWfSMDKEHDS2adsZSbtrdq0XTzqjrqySlOzcvz83LM5AaAFeJojqPriR+oZe0SPiNtbmUOd1qusdcO3NkOZm6GvSunXQsdY0pV22qq7Jb/31CInWT5s75T4Df55FN1WCCXlnkxELwlILGzmXQ6voqyWfZf/1jXoPSyPXKMMnXSVXYHsUVuNGUXNVuyl1doTJMhB8yauw3fmJ3sMe7Ctxoqqmuii7IXr/NlTrYetur5jUojY1Fhd7aO3Ux+g4dY68xFAvdtaGjXrmVlhbMI403pla53JVrGYSQLnpqdI6PTKozDwGt8TJCNwrkqnZQ1Fz8qKayPJzrnobkmWKfEdWBYZH7wFNq97Wu1tZLCrLXbyM5C5eVijyhnkRS9iqUvkPHNP7y1VJSWCwqzB+waygwxvTxk6fbMcZ0+bGCa1crz0vsvadIGt4si56RgRDSzZr5ikk2JrBSWVk4EzJRWHRMp+ICdFls6C5vBQBoqquiD+/ceRJjTB85VMzpcNjQMdsdIaR7IeG1Ih+ZVGdvDqdvuc1o79TFkJyFy2Ehe1SQ7/vEu45411tN95gT3321AWNMH0tdc3+geteM9HRjbl6eoWzHps3q+iqJI1413E/II51m7IefPdSEPrrgSQ8AgEmzZn/pExLp0ESFur5KUpC9flteg9KYkRHC2f7ZhYuWaNJSU/nS8EmlgWGR++y5wUQwWiT8BqBzpMqRSY2+IFKneD3j7/9jb2OIvkPHDPcZSk19dk4ROzobaEAtKV7Nz83LM5Tu3Ly85rvPV99qusfYq0fDfYZSxKuaP6wbWVLcsCmx+ZGhflpHGJCr2uHChcqXTx/cvTw396aRy8ca06ZMdAcAmDR3zn/6hETa5F0JUCOixyrXbvj0jYWLlmjI+hguE0JIR45xnpjyfIrAO5Cy2UB5B1Jhzy/dGpu87s8IIR2TmTngwmCGyUTz47calPLaqGsnv9tiL1AJiYIilbHL3t6bGiDhmevRI+Nd5ElrTz0bt8ZWxX0kjldUyyrKCrco5bVR8+O3cvYccuGiJZqiFcl8kgJYe7PZQH1z077ABwqLXMW7/PSTB6SlpvJjl729l9QpCF/WAHX6K/EmoA6k+VZ2QYmisjDGmC7atK6iqa6KdiT/F3gHmrwqMajdgtU/IbGlaEUyP2xKbL5AJC12xEqQ/PXTzLVnuA5Y/MJz7gCd54/WGikC1IR1m2YjhHT7C/YIqawsl1l3QkJ14l1J7tqdzC0B1TxcGxAeNTMTLVy0RIMxpj98982dVyvPSxxxbAI3mooIDVLGLnt7b1pqKj+vQflIkdLi4PRRLxGkBkh4S9Mz/+5o7koAW7RpXQUBLBfbEUkKIPELvRQYFrmvq7BQ36FjWtRa8BO7wzPPzf/8zU37AiV+oZfSUlP5pJ3PlSg7J4fHZGYiUhk255UoIPl5uM9Qanps0ptxK99NIR6V6/l5r3jUrE6P+uG7b+68/evRJAI4W70pAECLWgs+IZG6MXNiMxBCOpKWWQXW3Lw8A5UkBIlf6CVicR0hfYeOuVp5XkIAu3DREg051+UapaWm8hdlbFwVERqk7Cos9PYfAWHPL926KGPjKuJRXVVhEUK6L0Y96YEQ0s1JXLYmMGJMR4taa7L2AjeaIt42MGJMR9jLK96Me+PPuwBcY/9UbwCVeNRDG1fdvv3r0SRHPKq+Q8d4izwhMCxy3/i5S/cWrUju0uh3aQkwxnRGeroxOyeH9+m6125fOvuzt6MhMQAAkoY3T5j3ehj5QlwTOBHG6YO7l184XJb98/FjEm+RJ7SoteAt8oSI6LFKWfSMjMdNYUkFe+/GjN3nvi9ZSgDaotaCt/8IiAgNUias2zSbRBEDzZsCdHa8kVbCok3rKsxDX4IPW8CraTdQTz49Xvdm1ocTJH6hl7rTJ9SdxZ01qw0QQrr5KeuT2RbXodxQUS2r+2FP8+mDu5eTv8OlsJiEwxNfXbbL0zek3FvUuY3jyafH60jYG/fGn3eZ+jUfE89CKo+LMjauiogeq7yr6aAI39Njk95ckbNfOlCBijGmZ08TPQJUNh7sBaq3/wh4YsrzKRK/0EukOt/V+3v0lGmpqfzsnBxe2e4PFh/L/+hTRw57TQUKN5pC0vDmMWOivyKhJJeUgL3B79N1r90GABgzJzZj4qvLdrEt7ONYNKGysjCJKjx9Q8pfev2tjRK/0EsDPewFACjduXn5tZPfbfnt119MjR9Cdz6jaTdQQne+VSBlg1rgRlOBT8/If2fTriUlxav5PW0I7Rl0DEMBRTEAAAf/sULx0+EfTd0ZxIrYAl7yGU27gSJhJQmvuAQEhgGKosDUfUWU9HFXWEurRgeiN2UyM1HaJx9SeQ1KI8aYLshev+3cyaNLWxpvABuYmvaHH6fZHWiJzpOi0uRp05VvbtoXmJERYsjOruuxot7zGk2KYjDGdFpqKn/u+m2BEdFjlWzLYA1QLcX1Qnc+QwpPn2auPbNr41+SSSM8sWj92bpGgPpgq5wpVH/cPYv5WfFAA+r+gj3C1AAJj8rKwnkNSmPpzs3LP1332u1z35eYgKppN1DkZQmQXb0ISAlQY6YvegIhpANmAWWNXlG2MLFw0RKNovpU3K5Nf8v/7ddfaGIlrAFqV6DWd+gYErtHhAYp2eEmQGcr17y4Lbz+Aom5Zx1IedpA4RljTB8oTTGyw9DGokLvfSfKP77969EkkpsSoDr697xFnjA9ac2bcW/8eVdjUaH3g8dzgNPAyraypTs3Lz/x3Vcb7l6/IBO68x/JYc2TbGtCZnJDvP1HQGBYZP602XO+GT936V6iMKkBEt70vI+GJCQm6QeCEqWlBfNyc28ai1Yk8+dv+4Q3kIwFGYLIzsnpVb6ZzEyUrlY/tC1FUX0q7l9b/9+ixgb5c1hRLXNGUdUcqKOeS1y5fP1/70gNkPAsNT84BawENHkNSuOujX9Jvnzy8CckNGCfx3VXEbP0PgJgtgWjA6IU4X5Cnix6Rkbssrf3mgutaEUy/6iXyCGBctVrdpW3p6UF86ZN/scQsgPYnu/NTi24aAAsKTBb1o7wnZGebpw1qw3MCzkYY/qXQ58vPl5x+MXeAikB6jPPzf988frsZfbUZihHlGnXxr8kX/6+8JMWtRbYHpYNOnsZ07QbKJ0Bg9/wUIgIDVJ6+oaUe8iCDlsCLhEyAAC1aJmJJ/Yyr6NeIgDqCwaYBRRQXzy0pJpLeRn5Ln9du+KtUDdVlix6RsbMV+JOkwIcm2ZPE/HHTxEzwCygZrSq4aiXyMSzpcdRMgW7GVsseX/xXrpz83KAznnbrmRNJQlhhvoFqitef9fwLywuJMcY03dKvvD4uvpsguHOtQ1Xa+sloFVAb4DUFPouXOlQLzXl6I1le1h2pctRsBLPS3IEb5EngKcUfGRSnUAkLQ4ZNfYbvYfPfkfCYrZn5UKONnuaiF9xXG0o3bl5+bH8jz4ljRhIGt4c7ifkEYM185W402KfEdXO8KxcyU2JAyApFlZUy3xCIh+RtSOetagwXyBoa1pYd/n8i3q1Ip6sXektgJp7VHJMae89txusGGM6PUhqyGtQGj9If311feXxLWymdQYMNN85z2zSGTp748n12IUtn5BInULHK/WXeWOyvLrisnxtCLqbHDDp5X8BAAjamhbeqDxLj4iMGgsAUHf1ytDzlZcNUcE+iQqNQf3OguRI/4TEFnLO2J9ehd05ZUnoAJ1dYFIhX6TQ8UrHjHpC5+Eta2tpUZ35tbF9N7uv9PjJ0+0h6G4y4fvEsePe4cMEz6s07Z4CkbT4nU27ltiaN/Um7/sL9gjPHPis5u71CzK27P0kXr/LWmNQg4A+TPgGPv3zjcqzD50aiHwDDd7e4gnmsm5qVtCgVUBfALQroDJMJqIo+3SMcpY3+CD99dX1tVe3sMvbzgIpoa7AzxboQ0TWtDwQkHkRjHxHct7VX56GHIifPrh7eUVZ4UOH7j0pgkXqhm9TIe9BWBa38t2U/gRsd0C1me8uyBpgmjsEroS+TgWrpRDGmhvOBSJGxVvkCaSTpL+qvkp5bdTG9JQf7l6/ILMmKnFG5DJs5JjmBYsXvzvx1WW7+iNvJ0ZKKa+N+jRz7Zlfz56mnQmW/iRv/xEQFBqR8nbOZ1tJJOqoE6B6S+l6q6LW2+HK4vXZy2ZPE/EPH1X1+nEJMXKnD+5e/sXevf1i5IaNHNOckfW3VdLwSaXs1rq+8qg1leXhn/z3h8carp6TPQ5A1RkwBEQ80zz1+Zffdfawh1OfsUksJXvOz9UAS0LD2dNE/B+PqY0UBU5/jCXGmJ4zQ2ysOK7uV6CylWt9zpY/9FWjPtuwf5q59oy1YT/XQeon8XqofdbZ6YVTTdn8+K0GsjXgnU27lkxfuHLrsJFjmrvKQblGLWotHPuyeHXpJxu2VBxXG9LTUnnObnkkVpZUffsTqCRHu3v9gozMGvf2wu7Z00T83NybxprK8vCN6Sk/PA5ABQDwGx76yDICZ9cBeuXp1WzrXHOyLOlw4e6PzEeKuJ5vJL6Z8ubEV5ftcqZ1JGGvqTH8+5KlXLonw0aOaf6/nx8K7o0pKIwxnZERYsjNvWl0tdpGT0WpgIhnTLm/uf5zHqyWBPVZ9l//SM5jXSUkTlz7HybA5tQrHNozxJ7iISmCXNkKXMvT2JXx3piAIkB15RyVFPdIa+zaDZ++QZ5q4aie9CtY2VZGKa+N+jwn66+3a6qSXAG03v4jYPor8abjDXsFQXJ5V1BUnQHDrFkzTXmXo0Un9sgdiSa4aKRsNeQR0WOV81PWJ0vDJ5X2pjdlU69vGszNyzOQEOhBy9ySxqLCt/adKP+Y66CV36olOSzErXw3JQ8hoz2VvZ+OfPlQkcpP4gVcTQloPoKffjoiUWnWnmksKgzwT0hscSQVyEhPN5J9RecO/yghQO2Nc83e8J6WQErW+qzI2Q99dXLQZ2GwJS8LAEC6da5Wnpdw2do6o12M7WHKdmzafOLHwwnkeMuZ3V7OVFbzIwg7EwCqpvJQ2LlL9+S3z3yzjTTKy5WtnAcr+X5kfJO9e6uvvGm/gdUkPrO2PjI7yFVBEsGR8PC/Nnzwmz3TPmzhYozpst0fLG6uPGoyVlxTXhNgn51TFLfy3RRrVo/0REp5bdSRL0snkv5frhor0pPtH+D3feCEF1exe9CdcR9cBqzmuZy5IIkCA3Qep/R1yMRWHjJAgIaIm6c+O6fI0dYxMqrFtsg1leXhB3cX/s18PKu/+SbKGjJq7DfkQUmODE2QajDbWNVdPv+iJb4t8ewoqM0/zz5KpPno995r/6h9kaNGfTvv9VUn2dNO/QVSToCV7XHY41sYY1rVdCP8wGfbplRdvvwC6HVz8H2VjJ3fOntQgH0tIrSI6LFKvu8T7857fdVJe6dculPeklUrjexqq7kCA3Rug3QmeNm8mv/sNzwU0BDxQwB1di5mDd/4vkrGHldzRNbm9+wRWfuPMPFMYVzxx3VZR83HEfsbpJwCa3dehy3Mtub6OU3NCgFR5Iar52SkgZ/tgXsqoLABKVe2mpTUNM3Rxdxsb21tYDIz0bPf5qGK42qDech44LNtU2jQz7pwofJlAl65shWcwXdAxDPNAAD+AX7fD5X5fz9z1jRt6KSYYnP+eqMNkYysWbpuTWV5+JFDR2f3xLe5d+yOZ5JmsHn2kUn14aNGH2ZvJDE5kLRgHjALKC7tn+IUWE3KC0ABk0mlpz28coMt6NrLXw6/sLmojjc54kMyBuUrkbwU7ifkqTTtFscyxEJ3bbVcY7yjVH49NnoUPyTiqXstLaozL4WPK/Kdv6Ctq0HnvlonQ7zO+5cLwRy4BLw//vt//aaO8Fnm7S2ecOLYce87dxo7po8KngsAYIlvsdBdCwBw7PLNQ76+/m5Tp09rAT79c8WvN/7n3999+8muIgbSxdQXysoAUOmpqbyu/pZSXhv104l//Ka6Jlnm7S2eUHf1ytDG5hbE5t2czOVsFc8cBCib/j92TARvzwD62gAAAABJRU5ErkJggg==" alt="CCG" style="width:100%;height:100%;object-fit:contain"></div>
+      <div>
+        <h1>Registre des planteurs &amp; plantations</h1>
+        <div class="sub"><a href="#" id="btnOrg" style="color:inherit"><span id="orgNom">Organisation non définie</span></a> · fiches de recrutement · codes · géolocalisation · paiements · documents</div>
+      </div>
+    </div>
+    <div class="toolbar">
+      <div class="menu">
+        <button class="btn sm" id="btnExport">Exporter ▾</button>
+        <div class="menu-pop" id="popExport">
+          <button data-x="csv">Fichier CSV (;)</button>
+          <button data-x="xls">Classeur Excel (.xls)</button>
+          <button data-x="pdfreg">PDF — registre complet</button>
+          <button data-x="pdffiches">PDF — toutes les fiches</button>
+          <button data-x="geojson">GeoJSON (SIG / QGIS)</button>
+        </div>
+      </div>
+      <button class="btn sm" id="btnBackup">Sauvegarder</button>
+      <button class="btn sm ghost" id="btnImport">Restaurer</button>
+      <input type="file" id="fileImport" accept="application/json,.json" hidden>
+    </div>
+  </header>
+
+  <div class="banner" id="banner">Le stockage du navigateur est indisponible : les données resteront en mémoire jusqu'à la fermeture de l'onglet. Exportez une sauvegarde avant de fermer.</div>
+
+  <nav class="tabs">
+    <button class="tab on" data-tab="fiche">Fiche de recrutement</button>
+    <button class="tab" data-tab="registre">Registre <span class="pill" id="tabCount">0</span></button>
+    <button class="tab" data-tab="carte">Carte</button>
+    <button class="tab" data-tab="paiements">Paiements</button>
+  </nav>
+
+  <!-- ====================== ONGLET FICHE ====================== -->
+  <section class="panel on" id="p-fiche">
+    <div class="grid">
+      <div>
+        <section class="card">
+          <div class="card-h">
+            <h2 id="ficheTitle">Nouvelle fiche</h2>
+            <span class="autosave" id="autosave">Brouillon enregistré automatiquement</span>
+          </div>
+          <div class="card-b">
+
+            <!-- 1. Identité -->
+            <fieldset class="sect">
+              <div class="sect-t"><span class="n">1</span> Identité</div>
+              <div class="field">
+                <label>Type de bénéficiaire</label>
+                <div class="seg" id="segType">
+                  <button type="button" data-v="planteur" class="on">Planteur</button>
+                  <button type="button" data-v="cooperative">Coopérative</button>
+                </div>
+              </div>
+
+              <div id="blocPlanteur">
+                <div class="row2">
+                  <div class="field">
+                    <label>Nom <span class="req">*</span></label>
+                    <input id="fNom" type="text" placeholder="KOUADIO" autocomplete="off">
+                  </div>
+                  <div class="field">
+                    <label>Prénom(s) <span class="req">*</span></label>
+                    <input id="fPrenom" type="text" placeholder="Kouakou Azic" autocomplete="off">
+                  </div>
+                </div>
+              </div>
+
+              <div id="blocCoop" style="display:none">
+                <div class="field">
+                  <label>Raison sociale <span class="req">*</span></label>
+                  <input id="fRaison" type="text" placeholder="Raison sociale de la coopérative" autocomplete="off">
+                </div>
+                <div class="field">
+                  <label>Numéro RCCM</label>
+                  <input id="fRccm" type="text" placeholder="CI-ABJ-2019-B-12345" autocomplete="off">
+                  <div class="hint">Registre du commerce et du crédit mobilier — obligatoire pour une coopérative.</div>
+                </div>
+              </div>
+
+              <div class="row2">
+                <div class="field">
+                  <label>Téléphone principal <span class="req">*</span></label>
+                  <input id="fTel" type="tel" inputmode="numeric" placeholder="07 00 00 00 00" autocomplete="off">
+                  <div class="hint">10 chiffres (format Côte d'Ivoire)</div>
+                </div>
+                <div class="field">
+                  <label>Téléphone secondaire</label>
+                  <input id="fTel2" type="tel" inputmode="numeric" placeholder="01 00 00 00 00" autocomplete="off">
+                </div>
+              </div>
+
+              <div class="row3">
+                <div class="field">
+                  <label>Pièce d'identité</label>
+                  <select id="fPieceType">
+                    <option value="">—</option>
+                    <option>CNI</option>
+                    <option>Attestation d'identité</option>
+                    <option>Passeport</option>
+                    <option>Carte consulaire</option>
+                    <option>Permis de conduire</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Numéro de la pièce</label>
+                  <input id="fPieceNum" type="text" placeholder="C0012345678" autocomplete="off">
+                </div>
+                <div class="field">
+                  <label>Expire le</label>
+                  <input id="fPieceExp" type="date">
+                </div>
+              </div>
+
+              <div class="field">
+                <label>Coopérative de rattachement</label>
+                <input id="fCoop" type="text" placeholder="Nom de la coopérative" autocomplete="off" list="coopList">
+                <datalist id="coopList"></datalist>
+              </div>
+
+              <div class="row3">
+                <div class="field">
+                  <label>Contact d'urgence — nom</label>
+                  <input id="fUrgNom" type="text" placeholder="Nom et prénoms" autocomplete="off">
+                </div>
+                <div class="field">
+                  <label>Lien de parenté</label>
+                  <input id="fUrgLien" type="text" placeholder="Frère, épouse…" autocomplete="off">
+                </div>
+                <div class="field">
+                  <label>Téléphone</label>
+                  <input id="fUrgTel" type="tel" inputmode="numeric" placeholder="05 00 00 00 00" autocomplete="off">
+                </div>
+              </div>
+
+              <div class="field">
+                <label>Photo du bénéficiaire</label>
+                <div class="photobox">
+                  <div class="photo" id="photoPv">Aucune</div>
+                  <div class="btnrow">
+                    <button type="button" class="btn sm" id="btnPhoto">Choisir une photo</button>
+                    <button type="button" class="btn sm ghost" id="btnPhotoDel">Retirer</button>
+                    <input type="file" id="filePhoto" accept="image/*" capture="environment" hidden>
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- 2. Plantation -->
+            <fieldset class="sect">
+              <div class="sect-t"><span class="n">2</span> Plantation</div>
+              <div class="row2">
+                <div class="field">
+                  <label>Ville / Village <span class="req">*</span></label>
+                  <input id="fVille" type="text" placeholder="Bohié" autocomplete="off" list="villeList">
+                  <datalist id="villeList"></datalist>
+                  <div class="hint">3 premières lettres → <span id="hintInit">—</span></div>
+                </div>
+                <div class="field">
+                  <label>Année de culture <span class="req">*</span></label>
+                  <input id="fAnnee" type="number" min="1950" max="2100" placeholder="2020" autocomplete="off">
+                  <div class="hint">Entre dans le code plantation</div>
+                </div>
+              </div>
+              <div class="row3">
+                <div class="field">
+                  <label>Superficie (ha) <span class="req">*</span></label>
+                  <input id="fSuperficie" type="number" min="0" step="0.01" placeholder="4.75" autocomplete="off">
+                </div>
+                <div class="field">
+                  <label>Année de création</label>
+                  <input id="fAnneeCrea" type="number" min="1950" max="2100" placeholder="2018" autocomplete="off">
+                </div>
+                <div class="field">
+                  <label>Nombre de pieds</label>
+                  <input id="fPieds" type="number" min="0" step="1" placeholder="2500" autocomplete="off">
+                </div>
+              </div>
+              <div class="row2">
+                <div class="field">
+                  <label>Statut foncier</label>
+                  <select id="fFoncier">
+                    <option value="">—</option>
+                    <option>Titre foncier</option>
+                    <option>Certificat foncier</option>
+                    <option>Arrêté de concession définitive (ACD)</option>
+                    <option>Attestation villageoise</option>
+                    <option>Bail emphytéotique</option>
+                    <option>Location / métayage</option>
+                    <option>Héritage familial</option>
+                    <option>Non défini</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>N° du document foncier</label>
+                  <input id="fFoncierNum" type="text" placeholder="Référence du titre / certificat" autocomplete="off">
+                </div>
+              </div>
+              <div class="field">
+                <label>Observations</label>
+                <textarea id="fNote" placeholder="Accès, état du verger, remarques de l'agent recruteur…"></textarea>
+              </div>
+            </fieldset>
+
+            <!-- 3. Géolocalisation -->
+            <fieldset class="sect">
+              <div class="sect-t"><span class="n">3</span> Géolocalisation</div>
+              <div class="row3">
+                <div class="field">
+                  <label>Latitude</label>
+                  <input id="fLat" type="number" step="0.000001" placeholder="6.678900" autocomplete="off">
+                </div>
+                <div class="field">
+                  <label>Longitude</label>
+                  <input id="fLng" type="number" step="0.000001" placeholder="-7.523400" autocomplete="off">
+                </div>
+                <div class="field">
+                  <label>&nbsp;</label>
+                  <button type="button" class="btn" id="btnGeoloc" style="width:100%">Ma position</button>
+                </div>
+              </div>
+              <div class="hint" style="margin:-6px 0 10px">Cliquez sur la carte pour placer la plantation, ou faites glisser le repère.</div>
+              <div id="mapForm"></div>
+              <div class="mapnote" id="mapNoteForm">Carte indisponible hors connexion : saisissez les coordonnées à la main ou utilisez « Ma position ».</div>
+            </fieldset>
+
+            <!-- 4. Paiement -->
+            <fieldset class="sect">
+              <div class="sect-t"><span class="n">4</span> Paiement</div>
+              <div class="field">
+                <label>Mode de paiement par défaut</label>
+                <div class="seg" id="segPay">
+                  <button type="button" data-v="mm" class="on">Mobile Money</button>
+                  <button type="button" data-v="banque">Compte bancaire</button>
+                  <button type="button" data-v="especes">Espèces</button>
+                </div>
+              </div>
+
+              <div id="blocMM">
+                <div class="row2">
+                  <div class="field">
+                    <label>Opérateur</label>
+                    <select id="fMMOp">
+                      <option value="">—</option>
+                      <option>Orange Money</option>
+                      <option>MTN MoMo</option>
+                      <option>Wave</option>
+                      <option>Moov Money</option>
+                      <option>Djamo</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label>Numéro du compte</label>
+                    <input id="fMMNum" type="tel" inputmode="numeric" placeholder="07 00 00 00 00" autocomplete="off">
+                  </div>
+                </div>
+                <div class="field">
+                  <label>Titulaire du compte</label>
+                  <input id="fMMTit" type="text" placeholder="Nom exact tel qu'enregistré chez l'opérateur" autocomplete="off">
+                </div>
+              </div>
+
+              <div id="blocBanque" style="display:none">
+                <div class="row2">
+                  <div class="field">
+                    <label>Banque</label>
+                    <input id="fBqNom" type="text" placeholder="SGBCI, NSIA, Ecobank…" autocomplete="off">
+                  </div>
+                  <div class="field">
+                    <label>SWIFT / BIC</label>
+                    <input id="fBqSwift" type="text" placeholder="SGCICIAB" autocomplete="off" style="text-transform:uppercase">
+                  </div>
+                </div>
+                <div class="field">
+                  <label>IBAN</label>
+                  <input id="fBqIban" type="text" placeholder="CI93 CI06 1010 0100 0000 0000 0000" autocomplete="off" style="text-transform:uppercase">
+                  <div class="hint" id="ibanHint">Contrôle automatique de la clé (norme ISO 13616).</div>
+                </div>
+                <div class="field">
+                  <label>Titulaire du compte</label>
+                  <input id="fBqTit" type="text" placeholder="Nom figurant sur le RIB" autocomplete="off">
+                </div>
+              </div>
+            </fieldset>
+
+            <!-- 5. Documents -->
+            <fieldset class="sect">
+              <div class="sect-t"><span class="n">5</span> Documents numériques</div>
+              <div class="drop" id="drop">
+                Déposez les fichiers ici, ou cliquez pour parcourir<br>
+                <span style="font-size:11.5px">PDF, JPG, PNG, WEBP — 8 Mo maximum par fichier</span>
+              </div>
+              <input type="file" id="fileDocs" accept="application/pdf,image/*" multiple hidden>
+              <ul class="doclist" id="docList"></ul>
+            </fieldset>
+
+            <div class="btnrow" style="margin-top:18px">
+              <button class="btn primary" id="btnSave">Enregistrer la fiche</button>
+            </div>
+            <div class="btnrow" style="margin-top:8px">
+              <button class="btn sm ghost" id="btnReset">Vider le formulaire</button>
+              <button class="btn sm ghost" id="btnCancelEdit" style="display:none">Annuler la modification</button>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Colonne droite -->
+      <div class="sticky">
+        <section class="card">
+          <div class="card-h"><h2>Codes attribués</h2><span class="count-pill" id="uniqPill">Unicité vérifiée</span></div>
+          <div class="card-b">
+            <div class="pv">
+              <div class="pvbox">
+                <div class="k">Code planteur</div>
+                <div class="v" id="pvPlanteur">00001</div>
+              </div>
+              <div class="pvbox">
+                <div class="k">Code plantation</div>
+                <div class="v dim" id="pvPlantation">—</div>
+              </div>
+              <div class="codes-visual">
+                <div id="qrBox"></div>
+                <div class="cap" id="qrCap">QR Code de la fiche</div>
+                <div id="barBox"></div>
+                <div class="cap">Code-barres (Code 128)</div>
+              </div>
+              <div class="btnrow">
+                <button class="btn sm" id="btnCounters">Compteurs</button>
+                <button class="btn sm ghost" id="btnPrintPreview">Imprimer la fiche</button>
+              </div>
+              <div id="countersPanel" style="display:none">
+                <div class="row2">
+                  <div class="field" style="margin:0">
+                    <label>Prochain code planteur</label>
+                    <input id="cPlanteur" type="number" min="1">
+                  </div>
+                  <div class="field" style="margin:0">
+                    <label>Prochain n° d'ordre</label>
+                    <input id="cOrdre" type="number" min="1">
+                  </div>
+                </div>
+                <div class="hint">Ajustez pour reprendre une numérotation existante. Enregistrement immédiat.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-h"><h2>Complétude de la fiche</h2><span class="count-pill" id="pctPill">0 %</span></div>
+          <div class="card-b">
+            <div class="bar"><i id="pctBar" style="width:0%"></i></div>
+            <ul class="chk" id="chkList"></ul>
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================== ONGLET REGISTRE ====================== -->
+  <section class="panel" id="p-registre">
+    <div class="stats" id="stats"></div>
+    <section class="card">
+      <div class="card-h">
+        <h2>Registre</h2>
+        <span class="count-pill" id="countPill">0 planteur</span>
+      </div>
+      <div class="card-b" style="padding-bottom:6px">
+        <div class="table-tools">
+          <div class="search">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+            <input id="search" type="text" placeholder="Rechercher (nom, code, village, téléphone, coopérative…)">
+          </div>
+          <select id="filtType" style="width:auto"><option value="">Tous les types</option><option value="planteur">Planteurs</option><option value="cooperative">Coopératives</option></select>
+          <select id="filtEtat" style="width:auto"><option value="">Toutes les fiches</option><option value="complet">Fiches complètes</option><option value="incomplet">Fiches incomplètes</option><option value="geo">Géolocalisées</option><option value="nogeo">Sans coordonnées</option></select>
+        </div>
+      </div>
+      <div class="tscroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Code planteur</th>
+              <th>Bénéficiaire</th>
+              <th>Téléphone</th>
+              <th>Code plantation</th>
+              <th>Superficie</th>
+              <th>Paiement</th>
+              <th>Fiche</th>
+              <th style="text-align:right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="empty">
+        <div class="big">Aucun planteur enregistré</div>
+        <div>Remplissez la fiche de recrutement et cliquez sur « Enregistrer la fiche ».</div>
+      </div>
+    </section>
+  </section>
+
+  <!-- ====================== ONGLET CARTE ====================== -->
+  <section class="panel" id="p-carte">
+    <section class="card">
+      <div class="card-h">
+        <h2>Plantations géolocalisées</h2>
+        <div class="btnrow">
+          <select id="mapFond" style="width:auto"><option value="osm">OpenStreetMap</option><option value="sat">Image satellite</option><option value="topo">Relief</option></select>
+          <button class="btn sm" id="btnFitAll">Tout afficher</button>
+        </div>
+      </div>
+      <div class="card-b">
+        <div id="mapAll"></div>
+        <div class="mapnote" id="mapNoteAll">Carte indisponible : la connexion internet est requise pour charger le fond de plan.</div>
+        <div class="hint" id="mapCount" style="margin-top:8px"></div>
+      </div>
+    </section>
+  </section>
+
+  <!-- ====================== ONGLET PAIEMENTS ====================== -->
+  <section class="panel" id="p-paiements">
+    <div class="grid">
+      <div>
+        <section class="card">
+          <div class="card-h"><h2>Historique des paiements</h2><span class="count-pill" id="payPill">0 paiement</span></div>
+          <div class="card-b" style="padding-bottom:6px">
+            <div class="table-tools">
+              <div class="search">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+                <input id="paySearch" type="text" placeholder="Rechercher (code, nom, référence…)">
+              </div>
+              <button class="btn sm" id="btnPayCsv">Exporter CSV</button>
+            </div>
+          </div>
+          <div class="tscroll">
+            <table>
+              <thead><tr><th>Date</th><th>Bénéficiaire</th><th>Mode</th><th>Référence</th><th style="text-align:right">Montant</th><th>Statut</th><th></th></tr></thead>
+              <tbody id="payBody"></tbody>
+            </table>
+          </div>
+          <div class="empty" id="payEmpty"><div class="big">Aucun paiement enregistré</div><div>Utilisez le formulaire pour enregistrer un versement.</div></div>
+        </section>
+      </div>
+      <div class="sticky">
+        <section class="card">
+          <div class="card-h"><h2>Nouveau paiement</h2></div>
+          <div class="card-b">
+            <div class="field">
+              <label>Bénéficiaire <span class="req">*</span></label>
+              <select id="payWho"></select>
+            </div>
+            <div class="field" id="payDefaultInfo" style="display:none">
+              <div class="hint" id="payDefaultTxt"></div>
+            </div>
+            <div class="row2">
+              <div class="field">
+                <label>Date <span class="req">*</span></label>
+                <input id="payDate" type="date">
+              </div>
+              <div class="field">
+                <label>Montant (FCFA) <span class="req">*</span></label>
+                <input id="payMontant" type="number" min="0" step="1" placeholder="150000">
+              </div>
+            </div>
+            <div class="row2">
+              <div class="field">
+                <label>Mode</label>
+                <select id="payMode">
+                  <option value="mm">Mobile Money</option>
+                  <option value="banque">Virement bancaire</option>
+                  <option value="especes">Espèces</option>
+                  <option value="cheque">Chèque</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Statut</label>
+                <select id="payStatut"><option value="paye">Payé</option><option value="attente">En attente</option><option value="echec">Échec</option></select>
+              </div>
+            </div>
+            <div class="field">
+              <label>Référence de la transaction</label>
+              <input id="payRef" type="text" placeholder="N° transaction, bordereau…">
+            </div>
+            <div class="field">
+              <label>Période / objet</label>
+              <input id="payObjet" type="text" placeholder="Livraisons de juin 2026">
+            </div>
+            <button class="btn primary" id="btnPayAdd">Enregistrer le paiement</button>
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <div class="foot">Fonctionne hors ligne · Données stockées uniquement sur cet appareil · À utiliser en complément d'Odoo</div>
+</div>
+
+<!-- Modale fiche -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-h">
+      <h3 id="modalTitle">Fiche</h3>
+      <div class="btnrow">
+        <button class="btn sm" id="btnModalEdit">Modifier</button>
+        <button class="btn sm" id="btnModalPrint">Imprimer / PDF</button>
+        <button class="x" id="btnModalClose">×</button>
+      </div>
+    </div>
+    <div class="modal-b" id="modalBody"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="printArea"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+/* Connexion Supabase — remplacer par supabase.js local avant de compiler l'APK */
+const SUPABASE_URL = "https://qmfnnykocjmwemsbinhf.supabase.co";
+const SUPABASE_KEY = "sb_publishable_GfjFAsmjicRFYwIBRfsNwg_Cs2xKm1v";
+window.supabaseClient = (typeof supabase !== "undefined")
+  ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: true }
+    })
+  : null;
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+window.__APP__=function(){
+  "use strict";
+
+  /* =========================================================
+     1. STOCKAGE (localStorage + repli mémoire)
+     ========================================================= */
+  /* Les données transitent par SEC : cache en mémoire, écriture chiffrée (AES-GCM)
+     dans le stockage local. Rien n'est lisible sans le mot de passe de l'agent. */
+  var storeOk = true;
+  try{ var tk="__rp_test"; localStorage.setItem(tk,"1"); localStorage.removeItem(tk); }
+  catch(e){ storeOk=false; document.getElementById("banner").classList.add("show"); }
+
+  function load(key, def){ var v=SEC.get(key); return v===undefined?def:v; }
+  function save(key, val){ return SEC.set(key, val); }
+
+  var KEY_DATA="rp_planteurs_v2", KEY_NP="rp_next_planteur", KEY_NO="rp_next_ordre", KEY_DRAFT="rp_brouillon", KEY_ORG="rp_organisation";
+
+  var records = load(KEY_DATA, []) || [];
+  var nextPlanteur = load(KEY_NP, 1);
+  var nextOrdre    = load(KEY_NO, 1);
+
+  /* =========================================================
+     2. FICHIERS (IndexedDB) — photos et documents
+     ========================================================= */
+  var DB=null, dbReady=false;
+  (function openDb(){
+    try{
+      var rq=indexedDB.open("rp_docs",1);
+      rq.onupgradeneeded=function(){ var d=rq.result; if(!d.objectStoreNames.contains("files")) d.createObjectStore("files",{keyPath:"key"}); };
+      rq.onsuccess=function(){ DB=rq.result; dbReady=true; refreshDocThumbs(); };
+      rq.onerror=function(){ dbReady=false; };
+    }catch(e){ dbReady=false; }
+  })();
+
+  /* Les pièces jointes sont chiffrées avec la même clé que le registre. */
+  function putFile(key, blob, meta){
+    if(!DB) return Promise.reject(new Error("indexeddb"));
+    return SEC.encBlob(blob).then(function(paq){
+      return new Promise(function(res,rej){
+        var t=DB.transaction("files","readwrite");
+        t.objectStore("files").put({key:key, paq:paq, name:meta.name, mime:meta.mime, size:meta.size});
+        t.oncomplete=function(){res(key);}; t.onerror=function(){rej(t.error);};
+      });
+    });
+  }
+  function getFile(key){
+    return new Promise(function(res,rej){
+      if(!DB) return rej(new Error("indexeddb"));
+      var r=DB.transaction("files","readonly").objectStore("files").get(key);
+      r.onsuccess=function(){ r.result?res(r.result):rej(new Error("absent")); };
+      r.onerror=function(){rej(r.error);};
+    }).then(function(rec){
+      if(rec.blob) return rec;                       // ancien format en clair
+      return SEC.decBlob(rec.paq, rec.mime).then(function(b){
+        return {key:rec.key, blob:b, name:rec.name, mime:rec.mime, size:rec.size};
+      });
+    });
+  }
+  function delFile(key){
+    return new Promise(function(res){
+      if(!DB) return res();
+      var t=DB.transaction("files","readwrite"); t.objectStore("files").delete(key);
+      t.oncomplete=function(){res();}; t.onerror=function(){res();};
+    });
+  }
+
+  /* =========================================================
+     3. OUTILS
+     ========================================================= */
+  var $=function(id){ return document.getElementById(id); };
+  function pad5(n){ return String(n).padStart(5,"0"); }
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
+  function uid(){ return Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,8); }
+
+  /* --- nom de l'organisation (paramétrable, affiché en tête et sur les impressions) --- */
+  function orgNom(){ return String(load(KEY_ORG,"")||""); }
+  function orgSigle(n){
+    var mots=String(n||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+      .split(/[^A-Za-z0-9]+/).filter(function(m){ return m.length>2; });
+    if(!mots.length) return "RP";
+    return mots.slice(0,3).map(function(m){ return m[0]; }).join("").toUpperCase();
+  }
+  function majOrg(){
+    var n=orgNom();
+    $("orgNom").textContent = n || "Organisation non définie";
+    $("orgMark").textContent = n ? orgSigle(n) : "RP";
+    document.title = (n? n+" — " : "")+"Registre planteurs & plantations";
+  }
+  function demanderOrg(){
+    var v=prompt("Nom de l'organisation (affiché en tête et sur les fiches imprimées) :", orgNom());
+    if(v===null) return;
+    save(KEY_ORG, v.trim()); majOrg();
+    toast(v.trim()? "Organisation enregistrée" : "Organisation effacée");
+  }
+
+  function initiales(ville){
+    if(!ville) return "";
+    var s=ville.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z]/g,"");
+    return s.slice(0,3).toUpperCase();
+  }
+  function nettoyageTel(v){ return (v||"").replace(/\D/g,"").slice(0,10); }
+  function formatTel(d){ return (d||"").replace(/(\d{2})(?=\d)/g,"$1 ").trim(); }
+  function fmtMontant(n){ return (Number(n)||0).toLocaleString("fr-FR")+" F"; }
+  function fmtDate(iso){ if(!iso) return "—"; var d=new Date(iso); if(isNaN(d)) return iso; return d.toLocaleDateString("fr-FR"); }
+  function fmtTaille(o){ if(o<1024) return o+" o"; if(o<1048576) return (o/1024).toFixed(0)+" Ko"; return (o/1048576).toFixed(1)+" Mo"; }
+  function codePlantation(ville,annee,ordre){ var i=initiales(ville); if(!i||!annee) return ""; return i+"-"+annee+"-"+pad5(ordre); }
+  function nomComplet(r){ return r.type==="cooperative" ? (r.raison||"") : ((r.nom||"")+" "+(r.prenom||"")).trim(); }
+
+  function toast(msg,warn){
+    var t=$("toast"); t.textContent=msg; t.className="show"+(warn?" warn":"");
+    clearTimeout(t._t); t._t=setTimeout(function(){ t.className=""; },2600);
+  }
+  function copyText(txt){
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(function(){toast("Copié : "+txt);},function(){fallbackCopy(txt);});
+    } else fallbackCopy(txt);
+  }
+  function fallbackCopy(txt){
+    var ta=document.createElement("textarea"); ta.value=txt; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); toast("Copié : "+txt);}catch(e){} document.body.removeChild(ta);
+  }
+  function dl(content,name,type){
+    var blob=(content instanceof Blob)?content:new Blob([content],{type:type});
+    var a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){URL.revokeObjectURL(a.href);},1500);
+  }
+  function stamp(){ var d=new Date(); return d.getFullYear()+String(d.getMonth()+1).padStart(2,"0")+String(d.getDate()).padStart(2,"0"); }
+
+  /* Contrôle IBAN (ISO 13616, clé modulo 97) */
+  function ibanValide(v){
+    var s=(v||"").replace(/[\s-]/g,"").toUpperCase();
+    if(!/^[A-Z]{2}[0-9A-Z]{13,32}$/.test(s)) return false;
+    var r=s.slice(4)+s.slice(0,4), num="";
+    for(var i=0;i<r.length;i++){ var c=r.charCodeAt(i); num += (c>=65&&c<=90) ? (c-55) : r[i]; }
+    var rem=0;
+    for(var j=0;j<num.length;j++) rem=(rem*10+Number(num[j]))%97;
+    return rem===1;
+  }
+  function swiftValide(v){ return /^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test((v||"").replace(/\s/g,"").toUpperCase()); }
+
+  /* =========================================================
+     4. QR CODE (encodeur autonome — mode octet, correction L)
+     ========================================================= */
+  var QR=(function(){
+    var EXP=new Array(512), LOG=new Array(256);
+    (function(){ var x=1; for(var i=0;i<255;i++){ EXP[i]=x; LOG[x]=i; x<<=1; if(x&0x100) x^=0x11d; } for(var j=255;j<512;j++) EXP[j]=EXP[j-255]; })();
+    function mul(a,b){ return (a===0||b===0)?0:EXP[LOG[a]+LOG[b]]; }
+    function genPoly(n){ var p=[1]; for(var i=0;i<n;i++){ var q=p.concat([0]); for(var j=0;j<p.length;j++) q[j+1]^=mul(p[j],EXP[i]); p=q; } return p; }
+    function ecc(data,n){
+      var g=genPoly(n), res=data.concat(new Array(n).fill(0));
+      for(var i=0;i<data.length;i++){ var c=res[i]; if(c){ for(var j=0;j<g.length;j++) res[i+j]^=mul(g[j],c); } }
+      return res.slice(data.length);
+    }
+    var CAP={1:19,2:34,3:55,4:80,5:108}, ECL={1:7,2:10,3:15,4:20,5:26};
+    function utf8(s){ var out=[],e=unescape(encodeURIComponent(s)); for(var i=0;i<e.length;i++) out.push(e.charCodeAt(i)); return out; }
+
+    function matrix(text){
+      var bytes=utf8(text), ver=0;
+      for(var v=1;v<=5;v++){ if(bytes.length+2<=CAP[v]){ ver=v; break; } }
+      if(!ver) return null;
+      var bits=[];
+      function put(val,len){ for(var i=len-1;i>=0;i--) bits.push((val>>i)&1); }
+      put(4,4); put(bytes.length,8);
+      for(var b=0;b<bytes.length;b++) put(bytes[b],8);
+      var cap=CAP[ver]*8;
+      for(var t=0;t<4&&bits.length<cap;t++) bits.push(0);
+      while(bits.length%8) bits.push(0);
+      var dc=[];
+      for(var i2=0;i2<bits.length;i2+=8){ var by=0; for(var j2=0;j2<8;j2++) by=(by<<1)|bits[i2+j2]; dc.push(by); }
+      var pad=[0xEC,0x11],k=0; while(dc.length<CAP[ver]) dc.push(pad[k++%2]);
+      var all=dc.concat(ecc(dc,ECL[ver]));
+
+      var n=17+4*ver, m=[], rs=[];
+      for(var r=0;r<n;r++){ m.push(new Array(n).fill(0)); rs.push(new Array(n).fill(0)); }
+      function setF(r,c,v){ if(r<0||c<0||r>=n||c>=n) return; m[r][c]=v; rs[r][c]=1; }
+      function finder(r0,c0){
+        for(var i=-1;i<=7;i++) for(var j=-1;j<=7;j++){
+          var vv=((i>=0&&i<=6&&(j===0||j===6))||(j>=0&&j<=6&&(i===0||i===6))||(i>=2&&i<=4&&j>=2&&j<=4))?1:0;
+          setF(r0+i,c0+j,vv);
+        }
+      }
+      finder(0,0); finder(0,n-7); finder(n-7,0);
+      for(var i3=8;i3<n-8;i3++){ var tv=(i3%2===0)?1:0; setF(6,i3,tv); setF(i3,6,tv); }
+      if(ver>=2){ var ac=n-7; for(var i4=-2;i4<=2;i4++) for(var j4=-2;j4<=2;j4++) setF(ac+i4,ac+j4,(Math.max(Math.abs(i4),Math.abs(j4))!==1)?1:0); }
+      setF(n-8,8,1);
+      for(var i5=0;i5<9;i5++){ if(!rs[8][i5]){m[8][i5]=0;rs[8][i5]=1;} if(!rs[i5][8]){m[i5][8]=0;rs[i5][8]=1;} }
+      for(var i6=0;i6<8;i6++){ if(!rs[8][n-1-i6]){m[8][n-1-i6]=0;rs[8][n-1-i6]=1;} if(!rs[n-1-i6][8]){m[n-1-i6][8]=0;rs[n-1-i6][8]=1;} }
+
+      var idx=0, dir=-1, col=n-1;
+      while(col>0){
+        if(col===6) col--;
+        for(var rc=0;rc<n;rc++){
+          var row=(dir===-1)?(n-1-rc):rc;
+          for(var c2=0;c2<2;c2++){
+            var cc=col-c2;
+            if(rs[row][cc]) continue;
+            var bit=0;
+            if(idx<all.length*8){ bit=(all[idx>>3]>>(7-(idx&7)))&1; idx++; }
+            if((row+cc)%2===0) bit^=1;   // masque 0
+            m[row][cc]=bit;
+          }
+        }
+        dir=-dir; col-=2;
+      }
+      var d=8, vpoly=d<<10;
+      for(var i7=14;i7>=10;i7--){ if((vpoly>>i7)&1) vpoly^=0x537<<(i7-10); }
+      var fmt=((d<<10)|vpoly)^0x5412;
+      function fb(i){ return (fmt>>i)&1; }
+      for(var i8=0;i8<=5;i8++) m[i8][8]=fb(i8);
+      m[7][8]=fb(6); m[8][8]=fb(7); m[8][7]=fb(8);
+      for(var i9=9;i9<15;i9++) m[8][14-i9]=fb(i9);
+      for(var ia=0;ia<8;ia++) m[8][n-1-ia]=fb(ia);
+      for(var ib=8;ib<15;ib++) m[n-15+ib][8]=fb(ib);
+      m[n-8][8]=1;
+      return m;
+    }
+
+    function svg(text,px){
+      var m=matrix(text);
+      if(!m) return '<div style="font-size:11px;color:#b91c1c">Contenu trop long pour le QR</div>';
+      var n=m.length, q=4, tot=n+2*q, s=(px||160)/tot, out=[];
+      out.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+(tot*s)+'" height="'+(tot*s)+'" viewBox="0 0 '+tot+' '+tot+'" shape-rendering="crispEdges">');
+      out.push('<rect width="'+tot+'" height="'+tot+'" fill="#fff"/>');
+      for(var r=0;r<n;r++){
+        var c=0;
+        while(c<n){
+          if(m[r][c]){ var st=c; while(c<n&&m[r][c]) c++; out.push('<rect x="'+(st+q)+'" y="'+(r+q)+'" width="'+(c-st)+'" height="1" fill="#5A2E12"/>'); }
+          else c++;
+        }
+      }
+      out.push('</svg>');
+      return out.join("");
+    }
+    return { svg:svg };
+  })();
+
+  /* =========================================================
+     5. CODE-BARRES (Code 128 B)
+     ========================================================= */
+  var BAR=(function(){
+    var P=("212222,222122,222221,121223,121322,131222,122213,122312,132212,221213,221312,231212,112232,122132,122231,113222,123122,"+
+      "123221,223211,221132,221231,213212,223112,312131,311222,321122,321221,312212,322112,322211,212123,212321,232121,111323,131123,"+
+      "131321,112313,132113,132311,211313,231113,231311,112133,112331,132131,113123,113321,133121,313121,211331,231131,213113,213311,"+
+      "213131,311123,311321,331121,312113,312311,332111,314111,221411,431111,111224,111422,121124,121421,141122,141221,112214,112412,"+
+      "122114,122411,142112,142211,241211,221114,413111,241112,134111,111242,121142,121241,114212,124112,124211,411212,421112,421211,"+
+      "212141,214121,412121,111143,111341,131141,114113,114311,411113,411311,113141,114131,311141,411131,211412,211214,211232,2331112").split(",");
+    function svg(txt,h,px){
+      var s=String(txt||"").replace(/[^\x20-\x7E]/g,""), vals=[104], sum=104;
+      for(var i=0;i<s.length;i++){ var v=s.charCodeAt(i)-32; vals.push(v); sum+=v*(i+1); }
+      vals.push(sum%103); vals.push(106);
+      var seq=vals.map(function(v){return P[v];}).join("");
+      var total=0; for(var k=0;k<seq.length;k++) total+=Number(seq[k]);
+      var W=(px||260)/total, H=h||46, x=0, out=[], bar=true;
+      out.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+(px||260)+'" height="'+H+'" viewBox="0 0 '+total+' '+H+'" shape-rendering="crispEdges">');
+      out.push('<rect width="'+total+'" height="'+H+'" fill="#fff"/>');
+      for(var j=0;j<seq.length;j++){
+        var w=Number(seq[j]);
+        if(bar) out.push('<rect x="'+x+'" y="0" width="'+w+'" height="'+H+'" fill="#1a1a15"/>');
+        x+=w; bar=!bar;
+      }
+      out.push('</svg>');
+      return out.join("");
+    }
+    return { svg:svg };
+  })();
+
+  /* =========================================================
+     6. ÉTAT DU FORMULAIRE
+     ========================================================= */
+  var editId=null;          // id de la fiche en cours de modification
+  var curPhoto=null;        // {key,name,mime,size}
+  var curDocs=[];           // [{id,key,name,mime,size,cat}]
+  var typeBenef="planteur";
+  var modePaie="mm";
+  var CATS=["Pièce d'identité","Document foncier","Photo de la plantation","Contrat / engagement","RIB / attestation de compte","Autre"];
+
+  var FIELDS=["fNom","fPrenom","fRaison","fRccm","fTel","fTel2","fPieceType","fPieceNum","fPieceExp","fCoop","fUrgNom","fUrgLien","fUrgTel",
+    "fVille","fAnnee","fSuperficie","fAnneeCrea","fPieds","fFoncier","fFoncierNum","fNote","fLat","fLng",
+    "fMMOp","fMMNum","fMMTit","fBqNom","fBqSwift","fBqIban","fBqTit"];
+
+  function val(id){ return ($(id).value||"").trim(); }
+
+  function readForm(){
+    return {
+      type:typeBenef,
+      nom:val("fNom").toUpperCase(), prenom:val("fPrenom"), raison:val("fRaison"), rccm:val("fRccm"),
+      tel:nettoyageTel(val("fTel")), tel2:nettoyageTel(val("fTel2")),
+      piece:{type:val("fPieceType"), numero:val("fPieceNum"), expire:val("fPieceExp")},
+      cooperative:val("fCoop"),
+      urgence:{nom:val("fUrgNom"), lien:val("fUrgLien"), tel:nettoyageTel(val("fUrgTel"))},
+      ville:val("fVille"), annee:Number(val("fAnnee"))||null,
+      plantation:{superficie:val("fSuperficie")?Number(val("fSuperficie")):null, anneeCreation:Number(val("fAnneeCrea"))||null,
+        pieds:Number(val("fPieds"))||null, foncier:val("fFoncier"), foncierNum:val("fFoncierNum")},
+      note:val("fNote"),
+      geo:(val("fLat")&&val("fLng"))?{lat:Number(val("fLat")),lng:Number(val("fLng"))}:null,
+      paiement:{mode:modePaie,
+        mm:{operateur:val("fMMOp"), numero:nettoyageTel(val("fMMNum")), titulaire:val("fMMTit")},
+        banque:{nom:val("fBqNom"), swift:val("fBqSwift").toUpperCase(), iban:val("fBqIban").toUpperCase().replace(/\s+/g," "), titulaire:val("fBqTit")}},
+      photo:curPhoto, docs:curDocs.slice()
+    };
+  }
+
+  function fillForm(r){
+    setType(r.type||"planteur");
+    $("fNom").value=r.nom||""; $("fPrenom").value=r.prenom||""; $("fRaison").value=r.raison||""; $("fRccm").value=r.rccm||"";
+    $("fTel").value=formatTel(r.tel||""); $("fTel2").value=formatTel(r.tel2||"");
+    var p=r.piece||{}; $("fPieceType").value=p.type||""; $("fPieceNum").value=p.numero||""; $("fPieceExp").value=p.expire||"";
+    $("fCoop").value=r.cooperative||"";
+    var u=r.urgence||{}; $("fUrgNom").value=u.nom||""; $("fUrgLien").value=u.lien||""; $("fUrgTel").value=formatTel(u.tel||"");
+    $("fVille").value=r.ville||""; $("fAnnee").value=r.annee||"";
+    var pl=r.plantation||{}; $("fSuperficie").value=pl.superficie!=null?pl.superficie:""; $("fAnneeCrea").value=pl.anneeCreation||"";
+    $("fPieds").value=pl.pieds||""; $("fFoncier").value=pl.foncier||""; $("fFoncierNum").value=pl.foncierNum||"";
+    $("fNote").value=r.note||"";
+    $("fLat").value=r.geo?r.geo.lat:""; $("fLng").value=r.geo?r.geo.lng:"";
+    var pa=r.paiement||{}; setMode(pa.mode||"mm");
+    var mm=pa.mm||{}; $("fMMOp").value=mm.operateur||""; $("fMMNum").value=formatTel(mm.numero||""); $("fMMTit").value=mm.titulaire||"";
+    var bq=pa.banque||{}; $("fBqNom").value=bq.nom||""; $("fBqSwift").value=bq.swift||""; $("fBqIban").value=bq.iban||""; $("fBqTit").value=bq.titulaire||"";
+    curPhoto=r.photo||null; curDocs=(r.docs||[]).slice();
+    renderPhoto(); renderDocs(); refreshPreview();
+  }
+
+  function resetForm(keepContext){
+    var ville=$("fVille").value, annee=$("fAnnee").value, coop=$("fCoop").value;
+    FIELDS.forEach(function(id){ $(id).value=""; $(id).classList.remove("err"); });
+    setType("planteur"); setMode("mm");
+    curPhoto=null; curDocs=[]; editId=null;
+    $("ficheTitle").textContent="Nouvelle fiche";
+    $("btnSave").textContent="Enregistrer la fiche";
+    $("btnCancelEdit").style.display="none";
+    if(keepContext){ $("fVille").value=ville; $("fAnnee").value=annee; $("fCoop").value=coop; }
+    renderPhoto(); renderDocs(); refreshPreview(); saveDraft();
+  }
+
+  function setType(t){
+    typeBenef=t;
+    Array.prototype.forEach.call($("segType").children,function(b){ b.classList.toggle("on", b.dataset.v===t); });
+    $("blocPlanteur").style.display = t==="planteur" ? "" : "none";
+    $("blocCoop").style.display     = t==="cooperative" ? "" : "none";
+  }
+  function setMode(m){
+    modePaie=m;
+    Array.prototype.forEach.call($("segPay").children,function(b){ b.classList.toggle("on", b.dataset.v===m); });
+    $("blocMM").style.display     = m==="mm" ? "" : "none";
+    $("blocBanque").style.display = m==="banque" ? "" : "none";
+  }
+
+  /* ---------- Brouillon (sauvegarde automatique) ---------- */
+  var draftTimer=null;
+  function saveDraft(){
+    clearTimeout(draftTimer);
+    draftTimer=setTimeout(function(){
+      save(KEY_DRAFT,{editId:editId, form:readForm()});
+      var h=new Date();
+      $("autosave").textContent="Brouillon enregistré à "+String(h.getHours()).padStart(2,"0")+":"+String(h.getMinutes()).padStart(2,"0");
+    },600);
+  }
+  function restoreDraft(){
+    var d=load(KEY_DRAFT,null);
+    if(d&&d.form){ fillForm(d.form); editId=d.editId||null;
+      if(editId&&records.some(function(x){return x.id===editId;})){ startEditUi(editId); } }
+  }
+
+  /* =========================================================
+     7. PHOTO ET DOCUMENTS
+     ========================================================= */
+  function blobUrlInto(el,key,alt){
+    getFile(key).then(function(f){
+      var url=URL.createObjectURL(f.blob);
+      el.innerHTML='<img src="'+url+'" alt="'+esc(alt||"")+'">';
+    }).catch(function(){ el.textContent="?"; });
+  }
+  function renderPhoto(){
+    var box=$("photoPv");
+    if(!curPhoto){ box.textContent="Aucune"; return; }
+    box.textContent="…"; blobUrlInto(box,curPhoto.key,"Photo");
+  }
+  function renderDocs(){
+    var ul=$("docList"); ul.innerHTML="";
+    curDocs.forEach(function(d){
+      var li=document.createElement("li");
+      var opts=CATS.map(function(c){ return '<option'+(c===d.cat?' selected':'')+'>'+esc(c)+'</option>'; }).join("");
+      li.innerHTML='<div class="thumb" data-k="'+d.key+'">'+(d.mime.indexOf("image")===0?"…":"PDF")+'</div>'+
+        '<div class="meta"><div class="nm">'+esc(d.name)+'</div><div class="sz">'+fmtTaille(d.size)+'</div></div>'+
+        '<select>'+opts+'</select>'+
+        '<button class="btn sm ghost" data-a="voir">Voir</button>'+
+        '<button class="btn sm ghost" data-a="tel">↓</button>'+
+        '<button class="btn sm danger" data-a="sup">×</button>';
+      li.querySelector("select").onchange=function(){ d.cat=this.value; refreshPreview(); saveDraft(); };
+      li.querySelector('[data-a="voir"]').onclick=function(){ ouvrirFichier(d.key); };
+      li.querySelector('[data-a="tel"]').onclick=function(){ telechargerFichier(d.key,d.name); };
+      li.querySelector('[data-a="sup"]').onclick=function(){
+        if(!confirm("Retirer « "+d.name+" » ?")) return;
+        curDocs=curDocs.filter(function(x){return x.id!==d.id;});
+        delFile(d.key); renderDocs(); refreshPreview(); saveDraft();
+      };
+      ul.appendChild(li);
+      if(d.mime.indexOf("image")===0) blobUrlInto(li.querySelector(".thumb"),d.key,d.name);
+    });
+  }
+  function refreshDocThumbs(){ renderPhoto(); renderDocs(); }
+
+  function ouvrirFichier(key){
+    getFile(key).then(function(f){
+      var url=URL.createObjectURL(f.blob);
+      var w=window.open(url,"_blank");
+      if(!w) { dl(f.blob,f.name); }
+      setTimeout(function(){URL.revokeObjectURL(url);},60000);
+    }).catch(function(){ toast("Fichier introuvable sur cet appareil",true); });
+  }
+  function telechargerFichier(key,name){
+    getFile(key).then(function(f){ dl(f.blob,name||f.name); }).catch(function(){ toast("Fichier introuvable",true); });
+  }
+
+  function ajouterFichiers(files,cat){
+    if(!dbReady){ toast("Stockage des fichiers indisponible sur ce navigateur",true); return; }
+    Array.prototype.forEach.call(files,function(file){
+      if(file.size>8*1024*1024){ toast("« "+file.name+" » dépasse 8 Mo",true); return; }
+      var ok=/^image\//.test(file.type)||file.type==="application/pdf";
+      if(!ok){ toast("Format refusé : "+(file.type||file.name),true); return; }
+      var key="f_"+uid();
+      putFile(key,file,{name:file.name,mime:file.type,size:file.size}).then(function(){
+        var devine = /^image\//.test(file.type) ? "Photo de la plantation" : "Autre";
+        if(/cni|ident|piece|pièce/i.test(file.name)) devine="Pièce d'identité";
+        if(/fonc|titre|acd|certificat/i.test(file.name)) devine="Document foncier";
+        if(/rib|iban|banque|compte/i.test(file.name)) devine="RIB / attestation de compte";
+        curDocs.push({id:uid(),key:key,name:file.name,mime:file.type,size:file.size,cat:cat||devine});
+        renderDocs(); refreshPreview(); saveDraft();
+      }).catch(function(){ toast("Échec de l'enregistrement du fichier",true); });
+    });
+  }
+
+  /* =========================================================
+     8. CARTES (Leaflet + OpenStreetMap)
+     ========================================================= */
+  var leafletOk = (typeof L!=="undefined");
+  var mapF=null, markerF=null, mapA=null, layerA=null, fondA=null;
+  var FONDS={
+    osm:{u:"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",a:"© OpenStreetMap"},
+    sat:{u:"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",a:"© Esri, Maxar"},
+    topo:{u:"https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",a:"© OpenTopoMap"}
+  };
+  var CENTRE=[7.54,-5.55], ZOOM=7;   // centre par défaut, recentré sur les points saisis
+
+  function initMapForm(){
+    if(!leafletOk){ $("mapNoteForm").classList.add("show"); return; }
+    if(mapF) { mapF.invalidateSize(); return; }
+    mapF=L.map("mapForm").setView(CENTRE,ZOOM);
+    L.tileLayer(FONDS.osm.u,{attribution:FONDS.osm.a,maxZoom:19}).addTo(mapF);
+    mapF.on("click",function(e){ placerMarqueur(e.latlng.lat,e.latlng.lng,true); });
+  }
+  function placerMarqueur(lat,lng,depuisCarte){
+    if(!mapF) return;
+    if(!markerF){
+      markerF=L.marker([lat,lng],{draggable:true}).addTo(mapF);
+      markerF.on("dragend",function(){ var p=markerF.getLatLng(); majCoords(p.lat,p.lng); });
+    } else markerF.setLatLng([lat,lng]);
+    if(depuisCarte) majCoords(lat,lng);
+  }
+  function majCoords(lat,lng){
+    $("fLat").value=Number(lat).toFixed(6); $("fLng").value=Number(lng).toFixed(6);
+    refreshPreview(); saveDraft();
+  }
+  function initMapAll(){
+    if(!leafletOk){ $("mapNoteAll").classList.add("show"); return; }
+    if(mapA){ mapA.invalidateSize(); return; }
+    mapA=L.map("mapAll").setView(CENTRE,ZOOM);
+    fondA=L.tileLayer(FONDS.osm.u,{attribution:FONDS.osm.a,maxZoom:19}).addTo(mapA);
+    layerA=L.layerGroup().addTo(mapA);
+  }
+  function renderMapAll(){
+    if(!mapA) return;
+    layerA.clearLayers();
+    var pts=[];
+    records.forEach(function(r){
+      if(!r.geo) return;
+      var m=L.marker([r.geo.lat,r.geo.lng]);
+      m.bindPopup('<b>'+esc(r.codePlanteur)+'</b> — '+esc(nomComplet(r))+'<br>'+
+        esc(r.codePlantation||"")+'<br>'+
+        (r.plantation&&r.plantation.superficie?esc(r.plantation.superficie)+' ha · ':'')+esc(r.ville||"")+
+        '<br><a href="#" data-open="'+r.id+'">Ouvrir la fiche</a>');
+      m.on("popupopen",function(e){
+        var a=e.popup.getElement().querySelector("[data-open]");
+        if(a) a.onclick=function(ev){ ev.preventDefault(); ouvrirModale(r.id); };
+      });
+      layerA.addLayer(m); pts.push([r.geo.lat,r.geo.lng]);
+    });
+    var n=pts.length;
+    $("mapCount").textContent=n+" plantation"+(n>1?"s":"")+" géolocalisée"+(n>1?"s":"")+" sur "+records.length+" fiche"+(records.length>1?"s":"")+".";
+    if(n){ try{ mapA.fitBounds(pts,{padding:[40,40],maxZoom:14}); }catch(e){} }
+  }
+
+  /* =========================================================
+     9. APERÇU DES CODES + COMPLÉTUDE
+     ========================================================= */
+  function codesPris(){
+    var s={p:{},pl:{}};
+    records.forEach(function(r){ s.p[r.codePlanteur]=r.id; s.pl[r.codePlantation]=r.id; });
+    return s;
+  }
+  function prochainCodePlanteur(){
+    var pris=codesPris().p, u=SEC.user(), pl=u&&u.plage;
+    if(pl && nextPlanteur<pl.min) nextPlanteur=pl.min;
+    while(pris[pad5(nextPlanteur)]) nextPlanteur++;
+    if(pl && nextPlanteur>pl.max) return pad5(pl.max);   // plage épuisée : signalé à l'enregistrement
+    return pad5(nextPlanteur);
+  }
+  function prochainOrdre(ville,annee){
+    var pris=codesPris().pl;
+    while(pris[codePlantation(ville,annee,nextOrdre)]) nextOrdre++;
+    return nextOrdre;
+  }
+
+  function contenuQr(codeP,codePl,f){
+    return "PLT|"+codeP+"|"+(codePl||"")+"|"+(nomComplet(f)||"").slice(0,40)+"|"+
+           (f.geo?Number(f.geo.lat).toFixed(5)+","+Number(f.geo.lng).toFixed(5):"")+"|"+((f.plantation&&f.plantation.superficie)?f.plantation.superficie+"ha":"");
+  }
+
+  function refreshPreview(){
+    var f=readForm();
+    var ref = editId ? records.find(function(x){return x.id===editId;}) : null;
+    var codeP = ref ? ref.codePlanteur : prochainCodePlanteur();
+    var ini=initiales(f.ville);
+    $("hintInit").textContent=ini||"—";
+    var codePl;
+    if(ref){ codePl=ref.codePlantation; }
+    else codePl = (ini&&f.annee) ? codePlantation(f.ville,f.annee,prochainOrdre(f.ville,f.annee)) : "";
+    $("pvPlanteur").textContent=codeP;
+    var pv=$("pvPlantation");
+    if(codePl){ pv.textContent=codePl; pv.classList.remove("dim"); } else { pv.textContent="—"; pv.classList.add("dim"); }
+    $("qrBox").innerHTML=QR.svg(contenuQr(codeP,codePl,f),150);
+    $("qrCap").textContent="QR — "+codeP+(codePl?" / "+codePl:"");
+    $("barBox").innerHTML=BAR.svg(codeP,42,240);
+    var doublonCode = !ref && codesPris().p[codeP];
+    $("uniqPill").textContent = doublonCode ? "Conflit de code" : "Unicité vérifiée";
+    $("uniqPill").style.color = doublonCode ? "#b91c1c" : "";
+    majComplet(f);
+  }
+
+  function critères(f){
+    var docCats={}; (f.docs||[]).forEach(function(d){ docCats[d.cat]=true; });
+    var pa=f.paiement||{}, mm=pa.mm||{}, bq=pa.banque||{}, pc=f.piece||{}, ur=f.urgence||{}, pl=f.plantation||{};
+    var paieOk = pa.mode==="especes" ? true :
+      pa.mode==="banque" ? !!(bq.nom&&bq.iban&&ibanValide(bq.iban)) :
+      !!(mm.operateur&&(mm.numero||"").length===10);
+    return [
+      {k:"Identité du bénéficiaire", ok: f.type==="cooperative" ? !!(f.raison&&f.rccm) : !!(f.nom&&f.prenom)},
+      {k:"Téléphone valide", ok:(f.tel||"").length===10},
+      {k:"Pièce d'identité renseignée", ok:!!(pc.type&&pc.numero)},
+      {k:"Photo du bénéficiaire", ok:!!f.photo},
+      {k:"Village et année de culture", ok:!!(f.ville&&f.annee)},
+      {k:"Superficie de la plantation", ok:pl.superficie>0},
+      {k:"Statut foncier", ok:!!pl.foncier},
+      {k:"Coordonnées GPS", ok:!!f.geo},
+      {k:"Coordonnées de paiement", ok:paieOk},
+      {k:"Contact d'urgence", ok:!!(ur.nom&&(ur.tel||"").length===10)},
+      {k:"Pièce d'identité téléversée", ok:!!docCats["Pièce d'identité"]},
+      {k:"Document foncier téléversé", ok:!!docCats["Document foncier"]}
+    ];
+  }
+  function majComplet(f){
+    var c=critères(f), ok=c.filter(function(x){return x.ok;}).length, pct=Math.round(ok/c.length*100);
+    $("pctPill").textContent=pct+" %";
+    $("pctBar").style.width=pct+"%";
+    var ul=$("chkList"); ul.innerHTML="";
+    c.forEach(function(x){
+      var li=document.createElement("li");
+      li.className=x.ok?"ok":"";
+      li.innerHTML='<span class="dot">'+(x.ok?"✓":"")+'</span>'+esc(x.k);
+      ul.appendChild(li);
+    });
+  }
+  function tauxComplet(r){ var c=critères(r); return Math.round(c.filter(function(x){return x.ok;}).length/c.length*100); }
+
+  /* =========================================================
+     10. ENREGISTREMENT + CONTRÔLES QUALITÉ
+     ========================================================= */
+  function marquerErreur(id,cond){ $(id).classList.toggle("err",!!cond); return !cond; }
+
+  function saveRecord(){
+    var f=readForm(), ok=true;
+    if(f.type==="cooperative"){
+      ok &= marquerErreur("fRaison",!f.raison);
+      $("fNom").classList.remove("err"); $("fPrenom").classList.remove("err");
+    } else {
+      ok &= marquerErreur("fNom",!f.nom); ok &= marquerErreur("fPrenom",!f.prenom);
+      $("fRaison").classList.remove("err");
+    }
+    ok &= marquerErreur("fVille",!f.ville||!initiales(f.ville));
+    ok &= marquerErreur("fAnnee",!f.annee||f.annee<1950||f.annee>2100);
+    ok &= marquerErreur("fSuperficie",!(f.plantation.superficie>0));
+    ok &= marquerErreur("fTel",f.tel.length!==10);
+    if(!ok){ toast("Champs obligatoires manquants ou invalides",true); return; }
+    if(f.tel2&&f.tel2.length!==10){ $("fTel2").classList.add("err"); toast("Le téléphone secondaire doit comporter 10 chiffres",true); return; }
+    $("fTel2").classList.remove("err");
+    if(f.paiement.mode==="banque"&&f.paiement.banque.iban&&!ibanValide(f.paiement.banque.iban)){
+      $("fBqIban").classList.add("err"); toast("IBAN invalide : la clé de contrôle ne correspond pas",true); return;
+    }
+    $("fBqIban").classList.remove("err");
+    if(f.paiement.mode==="banque"&&f.paiement.banque.swift&&!swiftValide(f.paiement.banque.swift)){
+      $("fBqSwift").classList.add("err"); toast("SWIFT/BIC invalide (8 ou 11 caractères)",true); return;
+    }
+    $("fBqSwift").classList.remove("err");
+
+    // Détection des doublons
+    var dup=records.filter(function(r){
+      if(r.id===editId) return false;
+      if(f.tel&&r.tel===f.tel) return true;
+      if(f.piece.numero&&r.piece&&r.piece.numero===f.piece.numero) return true;
+      if(f.type==="planteur"&&r.type!=="cooperative"&&r.nom===f.nom&&(r.prenom||"").toLowerCase()===f.prenom.toLowerCase()
+         &&(r.ville||"").toLowerCase()===f.ville.toLowerCase()) return true;
+      if(f.type==="cooperative"&&r.raison&&r.raison.toLowerCase()===f.raison.toLowerCase()) return true;
+      return false;
+    });
+    if(dup.length){
+      var l=dup.slice(0,4).map(function(r){return "• "+r.codePlanteur+" — "+nomComplet(r)+" ("+(r.ville||"")+")";}).join("\n");
+      if(!confirm("Doublon possible avec :\n"+l+"\n\nEnregistrer quand même ?")) return;
+    }
+
+    if(editId){
+      var i=records.findIndex(function(x){return x.id===editId;});
+      var anc=records[i];
+      records[i]=Object.assign({},anc,f,{id:anc.id,codePlanteur:anc.codePlanteur,codePlantation:anc.codePlantation,agent:anc.agent||(SEC.user()||{}).login,
+        ordre:anc.ordre,paiements:anc.paiements||[],cree:anc.cree,modifie:new Date().toISOString()});
+      persistAll(); toast("Fiche "+anc.codePlanteur+" mise à jour");
+      resetForm(true); allerOnglet("registre");
+    } else {
+      var codeP=prochainCodePlanteur(), ord=prochainOrdre(f.ville,f.annee);
+      var moi=SEC.user();
+      if(moi && moi.plage && Number(codeP)>=moi.plage.max){
+        toast("Plage de codes épuisée ("+moi.plage.min+" – "+moi.plage.max+") : contactez l'administrateur",true); return;
+      }
+      var rec=Object.assign({},f,{
+        id:uid(), codePlanteur:codeP, ordre:ord, codePlantation:codePlantation(f.ville,f.annee,ord),
+        agent:moi?moi.login:"", paiements:[], cree:new Date().toISOString(), modifie:new Date().toISOString()
+      });
+      records.push(rec);
+      nextPlanteur=Number(codeP)+1; nextOrdre=ord+1;
+      persistAll();
+      toast("Enregistré : "+rec.codePlanteur+" / "+rec.codePlantation);
+      resetForm(true);
+    }
+    syncCounters(); majTout();
+  }
+
+  function persistAll(){ save(KEY_DATA,records); save(KEY_NP,nextPlanteur); save(KEY_NO,nextOrdre); }
+  function syncCounters(){ $("cPlanteur").value=nextPlanteur; $("cOrdre").value=nextOrdre; }
+
+  function startEditUi(id){
+    editId=id;
+    var r=records.find(function(x){return x.id===id;});
+    $("ficheTitle").textContent="Modification — "+r.codePlanteur;
+    $("btnSave").textContent="Enregistrer les modifications";
+    $("btnCancelEdit").style.display="";
+  }
+  function editRecord(id){
+    var r=records.find(function(x){return x.id===id;});
+    if(!r) return;
+    fillForm(r); startEditUi(id); fermerModale(); allerOnglet("fiche");
+    window.scrollTo({top:0,behavior:"smooth"});
+    refreshPreview(); saveDraft();
+  }
+  function removeRec(id){
+    var r=records.find(function(x){return x.id===id;});
+    if(!r) return;
+    if(!confirm("Supprimer définitivement "+r.codePlanteur+" — "+nomComplet(r)+" ?\nLes documents liés seront également effacés.")) return;
+    (r.docs||[]).forEach(function(d){ delFile(d.key); });
+    if(r.photo) delFile(r.photo.key);
+    records=records.filter(function(x){return x.id!==id;});
+    persistAll(); fermerModale(); majTout(); toast("Fiche supprimée");
+  }
+
+  /* =========================================================
+     11. REGISTRE
+     ========================================================= */
+  function filtrer(){
+    var q=($("search").value||"").toLowerCase().trim(), ft=$("filtType").value, fe=$("filtEtat").value;
+    return records.slice().reverse().filter(function(r){
+      if(ft&&(r.type||"planteur")!==ft) return false;
+      var pct=tauxComplet(r);
+      if(fe==="complet"&&pct<100) return false;
+      if(fe==="incomplet"&&pct>=100) return false;
+      if(fe==="geo"&&!r.geo) return false;
+      if(fe==="nogeo"&&r.geo) return false;
+      if(!q) return true;
+      var hay=[r.codePlanteur,r.codePlantation,nomComplet(r),r.ville,r.tel,r.cooperative,(r.piece||{}).numero].join(" ").toLowerCase();
+      return hay.indexOf(q)>=0;
+    });
+  }
+
+  function render(){
+    var list=filtrer(), tb=$("tbody"); tb.innerHTML="";
+    $("countPill").textContent=records.length+(records.length>1?" planteurs":" planteur");
+    $("tabCount").textContent=records.length;
+    $("empty").style.display=list.length===0?"block":"none";
+    $("empty").innerHTML = records.length
+      ? '<div class="big">Aucun résultat</div><div>Modifiez la recherche ou les filtres.</div>'
+      : '<div class="big">Aucun planteur enregistré</div><div>Remplissez la fiche de recrutement et cliquez sur « Enregistrer la fiche ».</div>';
+
+    list.forEach(function(r){
+      var tr=document.createElement("tr");
+      var pct=tauxComplet(r);
+      var pa=r.paiement||{}, modeTxt = pa.mode==="banque" ? ((pa.banque&&pa.banque.nom)||"Banque")
+        : pa.mode==="especes" ? "Espèces" : ((pa.mm&&pa.mm.operateur)||"Mobile Money");
+
+      var td1=document.createElement("td");
+      td1.innerHTML='<span class="code">'+esc(r.codePlanteur)+'</span> <button class="copy" title="Copier">⧉</button>';
+      td1.querySelector(".copy").onclick=function(){ copyText(r.codePlanteur); };
+
+      var td2=document.createElement("td");
+      td2.innerHTML='<div class="cell-name">'+esc(nomComplet(r))+(r.type==="cooperative"?' <span class="badge info">Coop</span>':'')+'</div>'+
+                    '<div class="cell-sub">'+esc(r.ville||"")+' · '+esc(String(r.annee||""))+(r.cooperative?' · '+esc(r.cooperative):'')+'</div>';
+
+      var td3=document.createElement("td");
+      td3.innerHTML=r.tel?'<span class="code tel">'+formatTel(r.tel)+'</span>':'<span class="cell-sub">—</span>';
+
+      var td4=document.createElement("td");
+      td4.innerHTML='<span class="code plant">'+esc(r.codePlantation||"—")+'</span>'+(r.geo?' <span class="badge ok" title="Géolocalisée">GPS</span>':'');
+
+      var td5=document.createElement("td");
+      td5.innerHTML=(r.plantation&&r.plantation.superficie)?esc(r.plantation.superficie)+' ha':'<span class="cell-sub">—</span>';
+
+      var td6=document.createElement("td");
+      td6.innerHTML='<span class="cell-sub">'+esc(modeTxt)+'</span>';
+
+      var td7=document.createElement("td");
+      td7.innerHTML='<span class="badge '+(pct===100?"ok":pct>=60?"warn":"bad")+'">'+pct+' %</span>';
+
+      var td8=document.createElement("td");
+      td8.innerHTML='<div class="rowact"><button class="btn sm" data-a="v">Voir</button>'+
+        '<button class="btn sm ghost" data-a="e">Modifier</button>'+
+        '<button class="btn sm danger" data-a="s">Suppr.</button></div>';
+      td8.querySelector('[data-a="v"]').onclick=function(){ ouvrirModale(r.id); };
+      td8.querySelector('[data-a="e"]').onclick=function(){ editRecord(r.id); };
+      td8.querySelector('[data-a="s"]').onclick=function(){ removeRec(r.id); };
+
+      [td1,td2,td3,td4,td5,td6,td7,td8].forEach(function(td){tr.appendChild(td);});
+      tb.appendChild(tr);
+    });
+    renderStats();
+  }
+
+  function renderStats(){
+    var sup=0, geo=0, comp=0, paie=0, coops={};
+    records.forEach(function(r){
+      if(r.plantation&&r.plantation.superficie) sup+=Number(r.plantation.superficie);
+      if(r.geo) geo++;
+      if(tauxComplet(r)===100) comp++;
+      (r.paiements||[]).forEach(function(p){ if(p.statut==="paye") paie+=Number(p.montant)||0; });
+      if(r.cooperative) coops[r.cooperative]=1;
+    });
+    var s=[
+      {k:"Fiches",v:records.length,u:""},
+      {k:"Superficie totale",v:sup.toFixed(2),u:"ha"},
+      {k:"Géolocalisées",v:geo,u:"/ "+records.length},
+      {k:"Fiches complètes",v:comp,u:"/ "+records.length},
+      {k:"Coopératives",v:Object.keys(coops).length,u:""},
+      {k:"Payé (cumul)",v:paie.toLocaleString("fr-FR"),u:"FCFA"}
+    ];
+    $("stats").innerHTML=s.map(function(x){
+      return '<div class="stat"><div class="k">'+esc(x.k)+'</div><div class="v">'+esc(String(x.v))+' <span class="u">'+esc(x.u)+'</span></div></div>';
+    }).join("");
+  }
+
+  function majListes(){
+    var villes={}, coops={};
+    records.forEach(function(r){ if(r.ville) villes[r.ville]=1; if(r.cooperative) coops[r.cooperative]=1; });
+    $("villeList").innerHTML=Object.keys(villes).map(function(v){return '<option value="'+esc(v)+'">';}).join("");
+    $("coopList").innerHTML=Object.keys(coops).map(function(v){return '<option value="'+esc(v)+'">';}).join("");
+  }
+
+  /* =========================================================
+     12. MODALE FICHE
+     ========================================================= */
+  var modalId=null;
+  function ligne(k,v){ return '<dt>'+esc(k)+'</dt><dd>'+(v==null||v===""?'—':v)+'</dd>'; }
+
+  function ouvrirModale(id){
+    var r=records.find(function(x){return x.id===id;});
+    if(!r) return;
+    modalId=id;
+    $("modalTitle").textContent=r.codePlanteur+" — "+nomComplet(r);
+    var pa=r.paiement||{}, mm=pa.mm||{}, bq=pa.banque||{}, pl=r.plantation||{}, pc=r.piece||{}, ur=r.urgence||{};
+    var h=[];
+    h.push('<div style="display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-bottom:16px">');
+    h.push('<div class="photo" id="mPhoto" style="width:96px;height:96px">Aucune photo</div>');
+    h.push('<div style="flex:1;min-width:220px"><dl class="dl">'+
+      ligne("Code planteur",'<span class="code">'+esc(r.codePlanteur)+'</span>')+
+      ligne("Code plantation",'<span class="code plant">'+esc(r.codePlantation||"")+'</span>')+
+      ligne("Type",r.type==="cooperative"?"Coopérative":"Planteur")+
+      ligne("Complétude",'<span class="badge '+(tauxComplet(r)===100?"ok":"warn")+'">'+tauxComplet(r)+' %</span>')+
+      '</dl></div>');
+    h.push('<div style="text-align:center">'+QR.svg(contenuQr(r.codePlanteur,r.codePlantation,r),120)+'<div style="margin-top:6px">'+BAR.svg(r.codePlanteur,34,180)+'</div></div>');
+    h.push('</div>');
+
+    h.push('<h4 style="margin:14px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:#5A2E12">Identité</h4><dl class="dl">');
+    if(r.type==="cooperative"){ h.push(ligne("Raison sociale",esc(r.raison))+ligne("RCCM",esc(r.rccm))); }
+    else { h.push(ligne("Nom",esc(r.nom))+ligne("Prénom(s)",esc(r.prenom))); }
+    h.push(ligne("Téléphone",formatTel(r.tel))+ligne("Téléphone 2",r.tel2?formatTel(r.tel2):"")+
+      ligne("Pièce d'identité",esc([pc.type,pc.numero].filter(Boolean).join(" · ")))+
+      ligne("Expiration",pc.expire?fmtDate(pc.expire):"")+
+      ligne("Coopérative",esc(r.cooperative))+
+      ligne("Contact d'urgence",esc([ur.nom,ur.lien,ur.tel?formatTel(ur.tel):""].filter(Boolean).join(" · ")))+'</dl>');
+
+    h.push('<h4 style="margin:14px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:#5A2E12">Plantation</h4><dl class="dl">'+
+      ligne("Village",esc(r.ville))+ligne("Année de culture",esc(String(r.annee||"")))+
+      ligne("Superficie",pl.superficie?esc(pl.superficie)+" ha":"")+
+      ligne("Année de création",esc(String(pl.anneeCreation||"")))+
+      ligne("Nombre de pieds",esc(String(pl.pieds||"")))+
+      ligne("Statut foncier",esc(pl.foncier))+ligne("N° document",esc(pl.foncierNum))+
+      ligne("Coordonnées",r.geo?'<span class="code">'+r.geo.lat.toFixed(6)+", "+r.geo.lng.toFixed(6)+'</span> <a href="https://www.openstreetmap.org/?mlat='+r.geo.lat+'&mlon='+r.geo.lng+'#map=16/'+r.geo.lat+'/'+r.geo.lng+'" target="_blank" rel="noopener">voir</a>':"")+
+      ligne("Observations",esc(r.note))+'</dl>');
+
+    var paieTxt = pa.mode==="banque" ? [bq.nom,bq.iban,bq.swift,bq.titulaire].filter(Boolean).map(esc).join("<br>")
+      : pa.mode==="especes" ? "Espèces" : [mm.operateur,mm.numero?formatTel(mm.numero):"",mm.titulaire].filter(Boolean).map(esc).join("<br>");
+    h.push('<h4 style="margin:14px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:#5A2E12">Paiement</h4><dl class="dl">'+
+      ligne("Mode par défaut",pa.mode==="banque"?"Compte bancaire":pa.mode==="especes"?"Espèces":"Mobile Money")+
+      ligne("Coordonnées",paieTxt)+'</dl>');
+
+    var pays=(r.paiements||[]).slice().sort(function(a,b){return (b.date||"").localeCompare(a.date||"");});
+    h.push('<h4 style="margin:14px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:#5A2E12">Historique des paiements ('+pays.length+')</h4>');
+    if(pays.length){
+      h.push('<div class="tscroll"><table><thead><tr><th>Date</th><th>Mode</th><th>Référence</th><th style="text-align:right">Montant</th><th>Statut</th></tr></thead><tbody>');
+      pays.forEach(function(p){
+        h.push('<tr><td>'+fmtDate(p.date)+'</td><td>'+esc(p.mode)+'</td><td>'+esc(p.ref||"")+'<div class="cell-sub">'+esc(p.objet||"")+'</div></td>'+
+          '<td style="text-align:right">'+fmtMontant(p.montant)+'</td><td><span class="badge '+(p.statut==="paye"?"ok":p.statut==="attente"?"warn":"bad")+'">'+esc(p.statut)+'</span></td></tr>');
+      });
+      h.push('</tbody></table></div>');
+    } else h.push('<div class="cell-sub">Aucun paiement enregistré.</div>');
+
+    h.push('<h4 style="margin:14px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:#5A2E12">Documents ('+((r.docs||[]).length)+')</h4>');
+    if((r.docs||[]).length){
+      h.push('<ul class="doclist" id="mDocs">');
+      (r.docs||[]).forEach(function(d){
+        h.push('<li><div class="thumb" data-k="'+esc(d.key)+'">'+(d.mime.indexOf("image")===0?"…":"PDF")+'</div>'+
+          '<div class="meta"><div class="nm">'+esc(d.name)+'</div><div class="sz">'+esc(d.cat)+' · '+fmtTaille(d.size)+'</div></div>'+
+          '<button class="btn sm ghost" data-v="'+esc(d.key)+'">Voir</button>'+
+          '<button class="btn sm ghost" data-t="'+esc(d.key)+'" data-n="'+esc(d.name)+'">↓</button></li>');
+      });
+      h.push('</ul>');
+    } else h.push('<div class="cell-sub">Aucun document téléversé.</div>');
+
+    h.push('<div class="cell-sub" style="margin-top:14px">Créée le '+fmtDate(r.cree)+' · modifiée le '+fmtDate(r.modifie)+'</div>');
+
+    $("modalBody").innerHTML=h.join("");
+    if(r.photo) blobUrlInto($("mPhoto"),r.photo.key,"Photo");
+    var mb=$("modalBody");
+    Array.prototype.forEach.call(mb.querySelectorAll("[data-v]"),function(b){ b.onclick=function(){ ouvrirFichier(b.dataset.v); }; });
+    Array.prototype.forEach.call(mb.querySelectorAll("[data-t]"),function(b){ b.onclick=function(){ telechargerFichier(b.dataset.t,b.dataset.n); }; });
+    Array.prototype.forEach.call(mb.querySelectorAll(".thumb"),function(t){
+      var k=t.dataset.k; var d=(r.docs||[]).find(function(x){return x.key===k;});
+      if(d&&d.mime.indexOf("image")===0) blobUrlInto(t,k,d.name);
+    });
+    $("overlay").classList.add("show");
+  }
+  function fermerModale(){ $("overlay").classList.remove("show"); modalId=null; }
+
+  /* =========================================================
+     13. PAIEMENTS
+     ========================================================= */
+  function majSelectPaie(){
+    var sel=$("payWho"), cur=sel.value;
+    sel.innerHTML='<option value="">— Choisir —</option>'+records.slice().sort(function(a,b){
+      return a.codePlanteur.localeCompare(b.codePlanteur);
+    }).map(function(r){
+      return '<option value="'+r.id+'">'+esc(r.codePlanteur+" — "+nomComplet(r))+'</option>';
+    }).join("");
+    if(cur) sel.value=cur;
+  }
+  function infoModeDefaut(){
+    var r=records.find(function(x){return x.id===$("payWho").value;});
+    var box=$("payDefaultInfo");
+    if(!r){ box.style.display="none"; return; }
+    var pa=r.paiement||{}, txt;
+    if(pa.mode==="banque") txt="Mode par défaut : virement — "+[(pa.banque||{}).nom,(pa.banque||{}).iban].filter(Boolean).join(" · ");
+    else if(pa.mode==="especes") txt="Mode par défaut : espèces";
+    else txt="Mode par défaut : "+[(pa.mm||{}).operateur,(pa.mm||{}).numero?formatTel(pa.mm.numero):""].filter(Boolean).join(" · ");
+    $("payDefaultTxt").textContent=txt; box.style.display="";
+    $("payMode").value=pa.mode==="banque"?"banque":pa.mode==="especes"?"especes":"mm";
+  }
+  function ajouterPaiement(){
+    var r=records.find(function(x){return x.id===$("payWho").value;});
+    if(!r){ toast("Sélectionnez un bénéficiaire",true); return; }
+    var d=$("payDate").value, m=Number($("payMontant").value);
+    if(!d){ toast("Indiquez la date du paiement",true); return; }
+    if(!(m>0)){ toast("Montant invalide",true); return; }
+    r.paiements=r.paiements||[];
+    r.paiements.push({id:uid(),date:d,montant:m,mode:$("payMode").value,ref:val("payRef"),objet:val("payObjet"),statut:$("payStatut").value,saisi:new Date().toISOString()});
+    r.modifie=new Date().toISOString();
+    persistAll();
+    $("payMontant").value=""; $("payRef").value=""; $("payObjet").value="";
+    majTout(); toast("Paiement enregistré pour "+r.codePlanteur);
+  }
+  function tousPaiements(){
+    var out=[];
+    records.forEach(function(r){ (r.paiements||[]).forEach(function(p){ out.push({r:r,p:p}); }); });
+    return out.sort(function(a,b){ return (b.p.date||"").localeCompare(a.p.date||""); });
+  }
+  function renderPaiements(){
+    var q=($("paySearch").value||"").toLowerCase().trim();
+    var list=tousPaiements().filter(function(x){
+      if(!q) return true;
+      return [x.r.codePlanteur,nomComplet(x.r),x.p.ref,x.p.objet].join(" ").toLowerCase().indexOf(q)>=0;
+    });
+    var tb=$("payBody"); tb.innerHTML="";
+    var total=0;
+    list.forEach(function(x){
+      if(x.p.statut==="paye") total+=Number(x.p.montant)||0;
+      var tr=document.createElement("tr");
+      tr.innerHTML='<td>'+fmtDate(x.p.date)+'</td>'+
+        '<td><div class="cell-name">'+esc(nomComplet(x.r))+'</div><div class="cell-sub"><span class="code">'+esc(x.r.codePlanteur)+'</span></div></td>'+
+        '<td>'+esc(x.p.mode)+'</td>'+
+        '<td>'+esc(x.p.ref||"—")+'<div class="cell-sub">'+esc(x.p.objet||"")+'</div></td>'+
+        '<td style="text-align:right">'+fmtMontant(x.p.montant)+'</td>'+
+        '<td><span class="badge '+(x.p.statut==="paye"?"ok":x.p.statut==="attente"?"warn":"bad")+'">'+esc(x.p.statut)+'</span></td>'+
+        '<td style="text-align:right"><button class="btn sm danger">×</button></td>';
+      tr.querySelector("button").onclick=function(){
+        if(!confirm("Supprimer ce paiement ?")) return;
+        x.r.paiements=x.r.paiements.filter(function(p){return p.id!==x.p.id;});
+        persistAll(); majTout(); toast("Paiement supprimé");
+      };
+      tb.appendChild(tr);
+    });
+    $("payEmpty").style.display=list.length?"none":"block";
+    $("payPill").textContent=list.length+" paiement"+(list.length>1?"s":"")+" · "+fmtMontant(total);
+  }
+
+  /* =========================================================
+     14. EXPORTS
+     ========================================================= */
+  function csvCell(v){ v=String(v==null?"":v); return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+  var COLS=[
+    ["Code planteur",function(r){return r.codePlanteur;}],
+    ["Type",function(r){return r.type==="cooperative"?"Coopérative":"Planteur";}],
+    ["Nom / Raison sociale",function(r){return r.type==="cooperative"?r.raison:r.nom;}],
+    ["Prénoms",function(r){return r.prenom||"";}],
+    ["RCCM",function(r){return r.rccm||"";}],
+    ["Téléphone",function(r){return r.tel||"";}],
+    ["Téléphone 2",function(r){return r.tel2||"";}],
+    ["Pièce",function(r){return (r.piece||{}).type||"";}],
+    ["N° pièce",function(r){return (r.piece||{}).numero||"";}],
+    ["Coopérative",function(r){return r.cooperative||"";}],
+    ["Contact urgence",function(r){var u=r.urgence||{};return [u.nom,u.lien,u.tel].filter(Boolean).join(" / ");}],
+    ["Code plantation",function(r){return r.codePlantation||"";}],
+    ["Village",function(r){return r.ville||"";}],
+    ["Année culture",function(r){return r.annee||"";}],
+    ["Superficie (ha)",function(r){return (r.plantation||{}).superficie||"";}],
+    ["Année création",function(r){return (r.plantation||{}).anneeCreation||"";}],
+    ["Pieds",function(r){return (r.plantation||{}).pieds||"";}],
+    ["Statut foncier",function(r){return (r.plantation||{}).foncier||"";}],
+    ["N° document foncier",function(r){return (r.plantation||{}).foncierNum||"";}],
+    ["Latitude",function(r){return r.geo?r.geo.lat:"";}],
+    ["Longitude",function(r){return r.geo?r.geo.lng:"";}],
+    ["Mode paiement",function(r){return (r.paiement||{}).mode||"";}],
+    ["Opérateur MM",function(r){return ((r.paiement||{}).mm||{}).operateur||"";}],
+    ["Numéro MM",function(r){return ((r.paiement||{}).mm||{}).numero||"";}],
+    ["Banque",function(r){return ((r.paiement||{}).banque||{}).nom||"";}],
+    ["IBAN",function(r){return ((r.paiement||{}).banque||{}).iban||"";}],
+    ["SWIFT/BIC",function(r){return ((r.paiement||{}).banque||{}).swift||"";}],
+    ["Titulaire",function(r){var p=r.paiement||{};return (p.mode==="banque"?(p.banque||{}).titulaire:(p.mm||{}).titulaire)||"";}],
+    ["Documents",function(r){return (r.docs||[]).length;}],
+    ["Complétude (%)",function(r){return tauxComplet(r);}],
+    ["Total payé",function(r){return (r.paiements||[]).filter(function(p){return p.statut==="paye";}).reduce(function(a,p){return a+(Number(p.montant)||0);},0);}],
+    ["Créée le",function(r){return (r.cree||"").slice(0,10);}],
+    ["Agent",function(r){return r.agent||"";}]
+  ];
+  function exportCsv(){
+    if(!records.length){ toast("Aucune donnée à exporter",true); return; }
+    var lines=[COLS.map(function(c){return c[0];}).join(";")];
+    records.forEach(function(r){ lines.push(COLS.map(function(c){return csvCell(c[1](r));}).join(";")); });
+    dl("\uFEFF"+lines.join("\r\n"),"planteurs_"+stamp()+".csv","text/csv;charset=utf-8");
+    toast("Export CSV généré");
+  }
+  function exportXls(){
+    if(!records.length){ toast("Aucune donnée à exporter",true); return; }
+    var h='<html xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8">'+
+      '<style>table{border-collapse:collapse}td,th{border:1px solid #999;padding:4px;font-family:Calibri,sans-serif;font-size:11pt}'+
+      'th{background:#5A2E12;color:#fff}</style></head><body>';
+    h+='<table><thead><tr>'+COLS.map(function(c){return '<th>'+esc(c[0])+'</th>';}).join("")+'</tr></thead><tbody>';
+    records.forEach(function(r){ h+='<tr>'+COLS.map(function(c){return '<td>'+esc(c[1](r))+'</td>';}).join("")+'</tr>'; });
+    h+='</tbody></table>';
+    var pays=tousPaiements();
+    if(pays.length){
+      h+='<br><table><thead><tr><th>Date</th><th>Code planteur</th><th>Bénéficiaire</th><th>Mode</th><th>Référence</th><th>Objet</th><th>Montant</th><th>Statut</th></tr></thead><tbody>';
+      pays.forEach(function(x){
+        h+='<tr><td>'+esc(x.p.date)+'</td><td>'+esc(x.r.codePlanteur)+'</td><td>'+esc(nomComplet(x.r))+'</td><td>'+esc(x.p.mode)+
+           '</td><td>'+esc(x.p.ref||"")+'</td><td>'+esc(x.p.objet||"")+'</td><td>'+esc(x.p.montant)+'</td><td>'+esc(x.p.statut)+'</td></tr>';
+      });
+      h+='</tbody></table>';
+    }
+    h+='</body></html>';
+    dl("\uFEFF"+h,"planteurs_"+stamp()+".xls","application/vnd.ms-excel;charset=utf-8");
+    toast("Classeur Excel généré");
+  }
+  function exportGeojson(){
+    var feats=records.filter(function(r){return r.geo;}).map(function(r){
+      return {type:"Feature",geometry:{type:"Point",coordinates:[r.geo.lng,r.geo.lat]},
+        properties:{code_planteur:r.codePlanteur,code_plantation:r.codePlantation,beneficiaire:nomComplet(r),
+          village:r.ville,annee:r.annee,superficie_ha:(r.plantation||{}).superficie||null,
+          statut_foncier:(r.plantation||{}).foncier||"",telephone:r.tel,cooperative:r.cooperative||""}};
+    });
+    if(!feats.length){ toast("Aucune plantation géolocalisée",true); return; }
+    dl(JSON.stringify({type:"FeatureCollection",name:"planteurs",
+      crs:{type:"name",properties:{name:"urn:ogc:def:crs:OGC:1.3:CRS84"}},features:feats},null,2),
+      "planteurs_"+stamp()+".geojson","application/geo+json");
+    toast(feats.length+" points exportés");
+  }
+  function exportPayCsv(){
+    var pays=tousPaiements();
+    if(!pays.length){ toast("Aucun paiement à exporter",true); return; }
+    var lines=["Date;Code planteur;Beneficiaire;Mode;Reference;Objet;Montant;Statut"];
+    pays.forEach(function(x){
+      lines.push([x.p.date,x.r.codePlanteur,nomComplet(x.r),x.p.mode,x.p.ref||"",x.p.objet||"",x.p.montant,x.p.statut].map(csvCell).join(";"));
+    });
+    dl("\uFEFF"+lines.join("\r\n"),"paiements_"+stamp()+".csv","text/csv;charset=utf-8");
+    toast("Export des paiements généré");
+  }
+
+  /* ---------- Sauvegarde / restauration ---------- */
+  function fileToDataUrl(blob){
+    return new Promise(function(res,rej){ var fr=new FileReader(); fr.onload=function(){res(fr.result);}; fr.onerror=rej; fr.readAsDataURL(blob); });
+  }
+  function exportBackup(){
+    var avecDocs=confirm("Inclure les fichiers (photos et documents) dans la sauvegarde ?\n\nOK = sauvegarde complète (fichier plus lourd)\nAnnuler = données seulement");
+    var payload={version:2,exported:new Date().toISOString(),nextPlanteur:nextPlanteur,nextOrdre:nextOrdre,records:records,fichiers:{}};
+    if(!avecDocs||!dbReady){ dl(JSON.stringify(payload),"sauvegarde_"+stamp()+".json","application/json"); toast("Sauvegarde générée"); return; }
+    var keys=[];
+    records.forEach(function(r){ if(r.photo) keys.push(r.photo.key); (r.docs||[]).forEach(function(d){ keys.push(d.key); }); });
+    Promise.all(keys.map(function(k){
+      return getFile(k).then(function(f){ return fileToDataUrl(f.blob).then(function(u){ return {k:k,u:u,n:f.name,m:f.mime,s:f.size}; }); }).catch(function(){return null;});
+    })).then(function(arr){
+      arr.filter(Boolean).forEach(function(x){ payload.fichiers[x.k]={data:x.u,name:x.n,mime:x.m,size:x.s}; });
+      dl(JSON.stringify(payload),"sauvegarde_complete_"+stamp()+".json","application/json");
+      toast("Sauvegarde complète générée");
+    });
+  }
+  function dataUrlToBlob(u){
+    var p=u.split(","), mime=(p[0].match(/:(.*?);/)||[])[1]||"application/octet-stream";
+    var bin=atob(p[1]), arr=new Uint8Array(bin.length);
+    for(var i=0;i<bin.length;i++) arr[i]=bin.charCodeAt(i);
+    return new Blob([arr],{type:mime});
+  }
+  function importBackup(file){
+    var fr=new FileReader();
+    fr.onload=function(){
+      try{
+        var d=JSON.parse(fr.result);
+        if(!d.records||!Array.isArray(d.records)) throw new Error("format");
+        if(!confirm("Restaurer "+d.records.length+" fiche(s) ? Le registre actuel sera remplacé.")) return;
+        records=d.records;
+        nextPlanteur=d.nextPlanteur||records.length+1;
+        nextOrdre=d.nextOrdre||records.length+1;
+        var fich=d.fichiers||{};
+        var ks=Object.keys(fich);
+        Promise.all(ks.map(function(k){
+          var f=fich[k];
+          return putFile(k,dataUrlToBlob(f.data),{name:f.name,mime:f.mime,size:f.size}).catch(function(){});
+        })).then(function(){
+          persistAll(); syncCounters(); majTout();
+          toast("Restauration réussie"+(ks.length?" ("+ks.length+" fichier(s))":""));
+        });
+      }catch(e){ toast("Fichier de sauvegarde invalide",true); }
+    };
+    fr.readAsText(file);
+  }
+
+  /* ---------- Impression / PDF ---------- */
+  function ficheHtml(r,photoUrl){
+    var pl=r.plantation||{}, pa=r.paiement||{}, mm=pa.mm||{}, bq=pa.banque||{}, pc=r.piece||{}, ur=r.urgence||{};
+    var paie = pa.mode==="banque" ? [bq.nom,bq.iban,bq.swift,bq.titulaire].filter(Boolean).join(" · ")
+      : pa.mode==="especes" ? "Espèces" : [mm.operateur,mm.numero?formatTel(mm.numero):"",mm.titulaire].filter(Boolean).join(" · ");
+    var rows=[
+      ["Type",r.type==="cooperative"?"Coopérative":"Planteur"],
+      [r.type==="cooperative"?"Raison sociale":"Nom et prénoms",nomComplet(r)],
+      ["RCCM",r.rccm||"—"],
+      ["Téléphone",formatTel(r.tel)+(r.tel2?" / "+formatTel(r.tel2):"")],
+      ["Pièce d'identité",[pc.type,pc.numero].filter(Boolean).join(" · ")||"—"],
+      ["Coopérative",r.cooperative||"—"],
+      ["Contact d'urgence",[ur.nom,ur.lien,ur.tel?formatTel(ur.tel):""].filter(Boolean).join(" · ")||"—"],
+      ["Village",r.ville||"—"],
+      ["Année de culture",r.annee||"—"],
+      ["Superficie",pl.superficie?pl.superficie+" ha":"—"],
+      ["Année de création",pl.anneeCreation||"—"],
+      ["Nombre de pieds",pl.pieds||"—"],
+      ["Statut foncier",[pl.foncier,pl.foncierNum].filter(Boolean).join(" · ")||"—"],
+      ["Coordonnées GPS",r.geo?r.geo.lat.toFixed(6)+", "+r.geo.lng.toFixed(6):"—"],
+      ["Mode de paiement",pa.mode==="banque"?"Compte bancaire":pa.mode==="especes"?"Espèces":"Mobile Money"],
+      ["Coordonnées de paiement",paie||"—"],
+      ["Documents joints",(r.docs||[]).map(function(d){return d.cat;}).join(", ")||"—"],
+      ["Observations",r.note||"—"]
+    ];
+    return '<div class="pfiche">'+
+      '<div style="display:flex;justify-content:space-between;border-bottom:2px solid #5A2E12;padding-bottom:6px;margin-bottom:10px">'+
+        '<div><h2>'+esc(orgNom()||"Fiche de recrutement")+'</h2><div style="font-size:11px">Fiche de recrutement planteur</div></div>'+
+        '<div style="text-align:right;font-family:monospace"><div style="font-size:15px;font-weight:700">'+esc(r.codePlanteur)+'</div>'+
+        '<div>'+esc(r.codePlantation||"")+'</div></div>'+
+      '</div>'+
+      '<div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:10px">'+
+        (photoUrl?'<img src="'+photoUrl+'" style="width:80px;height:80px;object-fit:cover;border:1px solid #ccc">':'')+
+        '<table style="flex:1;border-collapse:collapse;width:100%">'+
+        rows.map(function(x){return '<tr><td style="width:150px;background:#f3f4ef">'+esc(x[0])+'</td><td>'+esc(x[1])+'</td></tr>';}).join("")+
+        '</table>'+
+        '<div style="text-align:center">'+QR.svg(contenuQr(r.codePlanteur,r.codePlantation,r),110)+
+          '<div style="margin-top:4px">'+BAR.svg(r.codePlanteur,30,150)+'</div></div>'+
+      '</div>'+
+      '<div style="display:flex;justify-content:space-between;margin-top:24px;font-size:11px">'+
+        '<div>Signature du planteur<br><br>______________________</div>'+
+        '<div>Agent recruteur<br><br>______________________</div>'+
+        '<div>Visa de l\'organisation<br><br>______________________</div>'+
+      '</div>'+
+      '<div style="font-size:9px;color:#666;margin-top:10px">Fiche éditée le '+new Date().toLocaleDateString("fr-FR")+' — complétude '+tauxComplet(r)+' %</div>'+
+    '</div>';
+  }
+  function imprimerFiches(list){
+    if(!list.length){ toast("Aucune fiche à imprimer",true); return; }
+    Promise.all(list.map(function(r){
+      if(!r.photo) return Promise.resolve({r:r,u:null});
+      return getFile(r.photo.key).then(function(f){return fileToDataUrl(f.blob);}).then(function(u){return {r:r,u:u};}).catch(function(){return {r:r,u:null};});
+    })).then(function(arr){
+      $("printArea").innerHTML=arr.map(function(x){return ficheHtml(x.r,x.u);}).join("");
+      window.print();
+    });
+  }
+  function imprimerRegistre(){
+    if(!records.length){ toast("Registre vide",true); return; }
+    var h='<h2 style="margin-bottom:2px">Registre des planteurs'+(orgNom()?" — "+esc(orgNom()):"")+'</h2>'+
+      '<div style="font-size:10px;margin-bottom:10px">Édité le '+new Date().toLocaleDateString("fr-FR")+' — '+records.length+' fiche(s)</div>'+
+      '<table style="width:100%;border-collapse:collapse"><thead><tr>'+
+      ["Code","Bénéficiaire","Tél.","Code plantation","Village","Sup. (ha)","Foncier","GPS","Paiement"].map(function(t){return '<th>'+t+'</th>';}).join("")+
+      '</tr></thead><tbody>';
+    records.forEach(function(r){
+      var pa=r.paiement||{};
+      h+='<tr><td>'+esc(r.codePlanteur)+'</td><td>'+esc(nomComplet(r))+'</td><td>'+esc(formatTel(r.tel))+'</td>'+
+         '<td>'+esc(r.codePlantation||"")+'</td><td>'+esc(r.ville||"")+'</td><td>'+esc((r.plantation||{}).superficie||"")+'</td>'+
+         '<td>'+esc((r.plantation||{}).foncier||"")+'</td><td>'+(r.geo?"oui":"non")+'</td>'+
+         '<td>'+esc(pa.mode==="banque"?((pa.banque||{}).nom||"Banque"):pa.mode==="especes"?"Espèces":((pa.mm||{}).operateur||"MM"))+'</td></tr>';
+    });
+    h+='</tbody></table>';
+    $("printArea").innerHTML=h;
+    window.print();
+  }
+
+  /* =========================================================
+     15. ONGLETS ET ÉVÉNEMENTS
+     ========================================================= */
+  function allerOnglet(nom){
+    Array.prototype.forEach.call(document.querySelectorAll(".tab"),function(b){ b.classList.toggle("on",b.dataset.tab===nom); });
+    Array.prototype.forEach.call(document.querySelectorAll(".panel"),function(p){ p.classList.toggle("on",p.id==="p-"+nom); });
+    if(nom==="fiche"&&mapF) setTimeout(function(){mapF.invalidateSize();},60);
+    if(nom==="carte"){ initMapAll(); setTimeout(function(){ if(mapA){mapA.invalidateSize(); renderMapAll();} },60); }
+    if(nom==="paiements"){ majSelectPaie(); renderPaiements(); }
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".tab"),function(b){ b.onclick=function(){ allerOnglet(b.dataset.tab); }; });
+
+  Array.prototype.forEach.call($("segType").children,function(b){ b.onclick=function(){ setType(b.dataset.v); refreshPreview(); saveDraft(); }; });
+  Array.prototype.forEach.call($("segPay").children,function(b){ b.onclick=function(){ setMode(b.dataset.v); refreshPreview(); saveDraft(); }; });
+
+  FIELDS.forEach(function(id){
+    $(id).addEventListener("input",function(){ refreshPreview(); saveDraft(); });
+    $(id).addEventListener("change",function(){ refreshPreview(); saveDraft(); });
+  });
+  ["fTel","fTel2","fUrgTel","fMMNum"].forEach(function(id){
+    $(id).addEventListener("input",function(){ var c=this.selectionStart===this.value.length; this.value=formatTel(nettoyageTel(this.value)); if(c) this.selectionStart=this.selectionEnd=this.value.length; });
+  });
+  $("fBqIban").addEventListener("input",function(){
+    var v=this.value.trim();
+    $("ibanHint").textContent = !v ? "Contrôle automatique de la clé (norme ISO 13616)." : (ibanValide(v)?"IBAN valide ✓":"Clé de contrôle incorrecte");
+    $("ibanHint").className = "hint"+(v&&!ibanValide(v)?" bad":"");
+  });
+  ["fNom","fPrenom","fRaison","fVille","fAnnee","fSuperficie","fTel"].forEach(function(id){
+    $(id).addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); saveRecord(); } });
+  });
+
+  $("btnSave").onclick=saveRecord;
+  $("btnReset").onclick=function(){ if(confirm("Vider le formulaire ?")) resetForm(false); };
+  $("btnCancelEdit").onclick=function(){ resetForm(false); toast("Modification annulée"); };
+
+  $("btnGeoloc").onclick=function(){
+    if(!navigator.geolocation){ toast("Géolocalisation non disponible",true); return; }
+    toast("Recherche de la position…");
+    navigator.geolocation.getCurrentPosition(function(p){
+      majCoords(p.coords.latitude,p.coords.longitude);
+      if(mapF){ mapF.setView([p.coords.latitude,p.coords.longitude],16); placerMarqueur(p.coords.latitude,p.coords.longitude,false); }
+      toast("Position enregistrée (±"+Math.round(p.coords.accuracy)+" m)");
+    },function(){ toast("Position refusée ou indisponible",true); },{enableHighAccuracy:true,timeout:15000});
+  };
+  ["fLat","fLng"].forEach(function(id){
+    $(id).addEventListener("change",function(){
+      var la=Number($("fLat").value), ln=Number($("fLng").value);
+      if(!isNaN(la)&&!isNaN(ln)&&$("fLat").value&&$("fLng").value&&mapF){ mapF.setView([la,ln],15); placerMarqueur(la,ln,false); }
+    });
+  });
+
+  $("btnPhoto").onclick=function(){ $("filePhoto").click(); };
+  $("filePhoto").addEventListener("change",function(){
+    var f=this.files[0]; this.value="";
+    if(!f) return;
+    if(!dbReady){ toast("Stockage des fichiers indisponible",true); return; }
+    if(f.size>8*1024*1024){ toast("Photo trop lourde (8 Mo max)",true); return; }
+    var key="f_"+uid();
+    putFile(key,f,{name:f.name,mime:f.type,size:f.size}).then(function(){
+      if(curPhoto) delFile(curPhoto.key);
+      curPhoto={key:key,name:f.name,mime:f.type,size:f.size};
+      renderPhoto(); refreshPreview(); saveDraft();
+    });
+  });
+  $("btnPhotoDel").onclick=function(){ if(curPhoto){ delFile(curPhoto.key); curPhoto=null; renderPhoto(); refreshPreview(); saveDraft(); } };
+
+  $("drop").onclick=function(){ $("fileDocs").click(); };
+  $("fileDocs").addEventListener("change",function(){ ajouterFichiers(this.files); this.value=""; });
+  ["dragenter","dragover"].forEach(function(ev){ $("drop").addEventListener(ev,function(e){ e.preventDefault(); this.classList.add("over"); }); });
+  ["dragleave","drop"].forEach(function(ev){ $("drop").addEventListener(ev,function(e){ e.preventDefault(); this.classList.remove("over"); }); });
+  $("drop").addEventListener("drop",function(e){ if(e.dataTransfer&&e.dataTransfer.files) ajouterFichiers(e.dataTransfer.files); });
+
+  $("search").addEventListener("input",render);
+  $("filtType").addEventListener("change",render);
+  $("filtEtat").addEventListener("change",render);
+  $("paySearch").addEventListener("input",renderPaiements);
+  $("payWho").addEventListener("change",infoModeDefaut);
+  $("btnPayAdd").onclick=ajouterPaiement;
+  $("btnPayCsv").onclick=exportPayCsv;
+
+  $("btnExport").onclick=function(e){ e.stopPropagation(); $("popExport").classList.toggle("show"); };
+  document.addEventListener("click",function(){ $("popExport").classList.remove("show"); });
+  Array.prototype.forEach.call($("popExport").children,function(b){
+    b.onclick=function(){
+      var x=b.dataset.x;
+      if(x==="csv") exportCsv();
+      else if(x==="xls") exportXls();
+      else if(x==="geojson") exportGeojson();
+      else if(x==="pdfreg") imprimerRegistre();
+      else if(x==="pdffiches") imprimerFiches(records);
+      $("popExport").classList.remove("show");
+    };
+  });
+  $("btnBackup").onclick=exportBackup;
+  $("btnImport").onclick=function(){ $("fileImport").click(); };
+  $("fileImport").addEventListener("change",function(){ if(this.files[0]){ importBackup(this.files[0]); this.value=""; } });
+
+  $("btnCounters").onclick=function(){ var p=$("countersPanel"); p.style.display=p.style.display==="none"?"block":"none"; };
+  $("cPlanteur").addEventListener("change",function(){ var v=parseInt(this.value,10); if(v>=1){ nextPlanteur=v; persistAll(); refreshPreview(); } });
+  $("cOrdre").addEventListener("change",function(){ var v=parseInt(this.value,10); if(v>=1){ nextOrdre=v; persistAll(); refreshPreview(); } });
+  $("btnPrintPreview").onclick=function(){
+    if(editId){ var r=records.find(function(x){return x.id===editId;}); if(r) return imprimerFiches([r]); }
+    var f=readForm();
+    var codeP=$("pvPlanteur").textContent, codePl=$("pvPlantation").textContent;
+    imprimerFiches([Object.assign({},f,{codePlanteur:codeP,codePlantation:codePl==="—"?"":codePl,cree:new Date().toISOString()})]);
+  };
+
+  $("btnModalClose").onclick=fermerModale;
+  $("overlay").addEventListener("click",function(e){ if(e.target===$("overlay")) fermerModale(); });
+  document.addEventListener("keydown",function(e){ if(e.key==="Escape") fermerModale(); });
+  $("btnModalEdit").onclick=function(){ if(modalId) editRecord(modalId); };
+  $("btnModalPrint").onclick=function(){ var r=records.find(function(x){return x.id===modalId;}); if(r) imprimerFiches([r]); };
+
+  $("mapFond").addEventListener("change",function(){
+    if(!mapA) return;
+    var f=FONDS[this.value];
+    if(fondA) mapA.removeLayer(fondA);
+    fondA=L.tileLayer(f.u,{attribution:f.a,maxZoom:19}).addTo(mapA);
+  });
+  $("btnFitAll").onclick=function(){ renderMapAll(); };
+
+  /* =========================================================
+     16. INITIALISATION
+     ========================================================= */
+  function majTout(){ render(); majListes(); majSelectPaie(); renderPaiements(); renderMapAll(); }
+
+  /* rafraîchissement du registre après une synchronisation */
+  window.addEventListener("rp:donnees",function(){ records=load(KEY_DATA,[])||[]; syncCounters(); majTout(); });
+
+  $("btnOrg").onclick=function(e){ e.preventDefault(); demanderOrg(); };
+  $("orgMark").onclick=function(){ demanderOrg(); };
+  majOrg();
+
+  $("payDate").value=new Date().toISOString().slice(0,10);
+  syncCounters();
+  initMapForm();
+  restoreDraft();
+  refreshPreview();
+  majTout();
+  $("fNom").focus();
+  window.addEventListener("beforeunload",function(){ save(KEY_DRAFT,{editId:editId,form:readForm()}); });
+};
+</script>
+<script>
+/* =============================================================
+   SÉCURITÉ — comptes locaux, chiffrement des données au repos
+   Ce module s'exécute AVANT l'application : tant que la session
+   n'est pas ouverte, window.__APP__() n'est jamais appelé.
+   ============================================================= */
+(function(){
+  "use strict";
+
+  var K_USERS="rp_comptes", K_VAULT="rp_coffre", K_META="rp_meta";
+  var ITER=310000, VERROU_MS=5*60*1000, MAX_ESSAIS=8;
+
+  var C = (window.crypto && window.crypto.subtle) ? window.crypto : null;
+
+  /* ---------- utilitaires binaires ---------- */
+  function b64(buf){ var b=new Uint8Array(buf), s=""; for(var i=0;i<b.length;i++) s+=String.fromCharCode(b[i]); return btoa(s); }
+  function unb64(str){ var s=atob(str), b=new Uint8Array(s.length); for(var i=0;i<s.length;i++) b[i]=s.charCodeAt(i); return b; }
+  function rnd(n){ var b=new Uint8Array(n); C.getRandomValues(b); return b; }
+  function enc(s){ return new TextEncoder().encode(s); }
+  function dec(b){ return new TextDecoder().decode(b); }
+  function lsGet(k,d){ try{ var v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } }
+  function lsSet(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); return true; }catch(e){ return false; } }
+
+  /* ---------- dérivation et chiffrement ---------- */
+  function cleMdp(mdp, salt, iter){
+    return C.subtle.importKey("raw", enc(mdp), "PBKDF2", false, ["deriveKey"]).then(function(km){
+      return C.subtle.deriveKey(
+        { name:"PBKDF2", salt:unb64(salt), iterations:iter||ITER, hash:"SHA-256" },
+        km, { name:"AES-GCM", length:256 }, false, ["encrypt","decrypt"]);
+    });
+  }
+  function chiffrer(cle, octets){
+    var iv=rnd(12);
+    return C.subtle.encrypt({name:"AES-GCM", iv:iv}, cle, octets).then(function(ct){
+      return { iv:b64(iv), ct:b64(ct) };
+    });
+  }
+  function dechiffrer(cle, paquet){
+    return C.subtle.decrypt({name:"AES-GCM", iv:unb64(paquet.iv)}, cle, unb64(paquet.ct));
+  }
+
+  /* ---------- objet SEC exposé à l'application ---------- */
+  var cache={}, dek=null, moi=null, tmr=null, dirty=false;
+
+  var SEC = window.SEC = {
+    get: function(k){ return cache[k]; },
+    set: function(k,v){ cache[k]=v; dirty=true; planifier(); return true; },
+    user: function(){ return moi ? {login:moi.login, nom:moi.nom, role:moi.role, plage:moi.plage} : null; },
+    estAdmin: function(){ return !!moi && moi.role==="admin"; },
+    /* chiffrement des pièces jointes (photos, documents) */
+    encBlob: function(blob){
+      return blob.arrayBuffer().then(function(buf){ return chiffrer(dek, buf); });
+    },
+    decBlob: function(paquet, mime){
+      return dechiffrer(dek, paquet).then(function(buf){ return new Blob([buf], {type:mime||"application/octet-stream"}); });
+    },
+    verrouiller: verrouiller,
+    flush: persister
+  };
+
+  function planifier(){ clearTimeout(tmr); tmr=setTimeout(persister, 400); }
+  function persister(){
+    if(!dek || !dirty) return Promise.resolve();
+    dirty=false;
+    return chiffrer(dek, enc(JSON.stringify(cache))).then(function(p){ lsSet(K_VAULT, p); })
+      .catch(function(){ dirty=true; });
+  }
+
+  /* ---------- comptes ---------- */
+  function comptes(){ return lsGet(K_USERS, []); }
+  function ecrireComptes(l){ lsSet(K_USERS, l); }
+  function trouver(login){
+    var n=(login||"").trim().toLowerCase();
+    return comptes().filter(function(u){ return u.login===n; })[0] || null;
+  }
+
+  function creerCompte(opts){
+    // opts: {login, nom, role, mdp, plage}  -> renvoie une promesse
+    var salt=b64(rnd(16));
+    return cleMdp(opts.mdp, salt, ITER).then(function(kc){
+      var dekBrut = opts.dekBrut || rnd(32);
+      return chiffrer(kc, dekBrut).then(function(wrap){
+        return C.subtle.digest("SHA-256", enc(salt+"|"+opts.mdp)).then(function(h){
+          var u={ login:opts.login.trim().toLowerCase(), nom:opts.nom||opts.login, role:opts.role||"agent",
+                  salt:salt, iter:ITER, verif:b64(h), dek:wrap, plage:opts.plage||null,
+                  actif:true, cree:new Date().toISOString(), essais:0, bloqueJusqu:0 };
+          var l=comptes(); l.push(u); ecrireComptes(l);
+          return { compte:u, dekBrut:dekBrut };
+        });
+      });
+    });
+  }
+
+  function ouvrirSession(login, mdp){
+    var u=trouver(login);
+    if(!u) return Promise.reject(new Error("Identifiant ou mot de passe incorrect"));
+    if(!u.actif) return Promise.reject(new Error("Ce compte est désactivé"));
+    if(u.bloqueJusqu && Date.now()<u.bloqueJusqu){
+      var s=Math.ceil((u.bloqueJusqu-Date.now())/1000);
+      return Promise.reject(new Error("Trop de tentatives — réessayez dans "+s+" s"));
+    }
+    return cleMdp(mdp, u.salt, u.iter).then(function(kc){
+      return dechiffrer(kc, u.dek);
+    }).then(function(brut){
+      return C.subtle.importKey("raw", brut, {name:"AES-GCM"}, false, ["encrypt","decrypt"]);
+    }).then(function(cle){
+      dek=cle; moi=u;
+      majCompte(u.login, {essais:0, bloqueJusqu:0, derniere:new Date().toISOString()});
+      var v=lsGet(K_VAULT, null);
+      if(!v) { cache={}; return; }
+      return dechiffrer(dek, v).then(function(buf){ cache=JSON.parse(dec(buf)); });
+    }).catch(function(e){
+      if(e && /tentatives|désactivé|incorrect/.test(e.message)) throw e;
+      var n=(u.essais||0)+1, maj={essais:n};
+      if(n>=MAX_ESSAIS){ maj.bloqueJusqu=Date.now()+60000; maj.essais=0; }
+      majCompte(u.login, maj);
+      throw new Error("Identifiant ou mot de passe incorrect");
+    });
+  }
+
+  function majCompte(login, patch){
+    var l=comptes();
+    for(var i=0;i<l.length;i++) if(l[i].login===login) for(var k in patch) l[i][k]=patch[k];
+    ecrireComptes(l);
+  }
+
+  /* ---------- récupération par code de secours (CCG) ---------- */
+  function genCode(){
+    var A="ABCDEFGHJKMNPQRSTUVWXYZ23456789", g=rnd(20), s="";
+    for(var i=0;i<20;i++){ s+=A[g[i]%A.length]; if(i%5===4 && i<19) s+="-"; }
+    return s;
+  }
+  function cleCode(code, salt, iter){
+    var c=(code||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+    return C.subtle.importKey("raw", enc(c), "PBKDF2", false, ["deriveKey"]).then(function(km){
+      return C.subtle.deriveKey({name:"PBKDF2", salt:unb64(salt), iterations:iter||ITER, hash:"SHA-256"},
+        km, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
+    });
+  }
+  function definirCode(login, brut){
+    var code=genCode(), rsalt=b64(rnd(16));
+    return cleCode(code, rsalt, ITER).then(function(rkc){
+      return chiffrer(rkc, brut).then(function(wrap){
+        majCompte(login, {rec:{salt:rsalt, iter:ITER, wrap:wrap}});
+        return code;
+      });
+    });
+  }
+  /* crée un compte puis lui attache un code de secours ; renvoie {compte,dekBrut,code} */
+  function creerCompteAvecCode(opts){
+    return creerCompte(opts).then(function(res){
+      return definirCode(res.compte.login, res.dekBrut).then(function(code){
+        return { compte:res.compte, dekBrut:res.dekBrut, code:code };
+      });
+    });
+  }
+  /* réinitialise le mot de passe à partir du code de secours ; renvoie un NOUVEAU code */
+  function reinitMdp(login, code, nouv){
+    var u=trouver(login);
+    if(!u) return Promise.reject(new Error("Identifiant inconnu."));
+    if(!u.rec) return Promise.reject(new Error("Aucun code de secours n'existe pour ce compte. Demandez à l'administrateur de le réinitialiser."));
+    if((nouv||"").length<8) return Promise.reject(new Error("Le nouveau mot de passe doit faire au moins 8 caractères."));
+    return cleCode(code, u.rec.salt, u.rec.iter)
+      .then(function(rkc){ return dechiffrer(rkc, u.rec.wrap); })
+      .catch(function(){ throw new Error("Code de secours incorrect."); })
+      .then(function(bufBrut){
+        var brut=new Uint8Array(bufBrut), nsalt=b64(rnd(16));
+        return cleMdp(nouv, nsalt, ITER).then(function(nkc){
+          return chiffrer(nkc, brut).then(function(ndek){
+            return C.subtle.digest("SHA-256", enc(nsalt+"|"+nouv)).then(function(h){
+              var ncode=genCode(), nrsalt=b64(rnd(16));
+              return cleCode(ncode, nrsalt, ITER).then(function(rkc2){
+                return chiffrer(rkc2, brut).then(function(nwrap){
+                  majCompte(login, {salt:nsalt, iter:ITER, verif:b64(h), dek:ndek,
+                                    rec:{salt:nrsalt, iter:ITER, wrap:nwrap}, essais:0, bloqueJusqu:0});
+                  return ncode;
+                });
+              });
+            });
+          });
+        });
+      });
+  }
+  /* réinitialisation par un admin connecté (partage la clé de coffre en mémoire) */
+  function adminReinit(login){
+    if(!dekBrutSession){ alert("Reconnectez-vous pour réinitialiser un compte."); return; }
+    var nouv=prompt("Nouveau mot de passe pour « "+login+" » (8 caractères minimum) :");
+    if(nouv==null) return;
+    if(nouv.length<8){ alert("Le mot de passe doit faire au moins 8 caractères."); return; }
+    var nsalt=b64(rnd(16));
+    cleMdp(nouv, nsalt, ITER).then(function(nkc){
+      return chiffrer(nkc, dekBrutSession).then(function(ndek){
+        return C.subtle.digest("SHA-256", enc(nsalt+"|"+nouv)).then(function(h){
+          return definirCode(login, dekBrutSession).then(function(code){
+            majCompte(login, {salt:nsalt, iter:ITER, verif:b64(h), dek:ndek, essais:0, bloqueJusqu:0});
+            admin.style.display="none";
+            ecranCode(code, "compte de "+login, function(){ panneauComptes(); });
+          });
+        });
+      });
+    }).catch(function(){ alert("Réinitialisation impossible."); });
+  }
+
+  /* écran d'affichage d'un code de secours (une seule fois) */
+  function ecranCode(code, contexte, apres){
+    ov.style.display="flex";
+    var e=document.getElementById("secErr"); if(e) e.style.display="none";
+    document.getElementById("secCorps").innerHTML=
+      '<h2>Code de secours</h2>'+
+      '<p class="hint">Conservez ce code en lieu sûr (photo, carnet). C\'est la <b>seule</b> façon de retrouver l\'accès au '+contexte+' en cas d\'oubli du mot de passe. Il ne sera plus jamais affiché.</p>'+
+      '<div class="codeBox" id="secCodeVal">'+code+'</div>'+
+      '<button type="button" class="go" id="secCodeCopy" style="background:#5A2E12">Copier le code</button>'+
+      '<label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:13px;font-weight:600;color:#374151"><input type="checkbox" id="secCodeChk" style="width:auto"> J\'ai noté ce code en lieu sûr</label>'+
+      '<button class="go" id="secCodeGo" disabled>Continuer</button>';
+    var chk=document.getElementById("secCodeChk"), go=document.getElementById("secCodeGo");
+    chk.onchange=function(){ go.disabled=!chk.checked; };
+    document.getElementById("secCodeCopy").onclick=function(){
+      var b=this; try{ navigator.clipboard.writeText(code).then(function(){ b.textContent="Code copié \u2713"; }); }
+      catch(_){ var r=document.createRange(); r.selectNode(document.getElementById("secCodeVal")); var s=window.getSelection(); s.removeAllRanges(); s.addRange(r); }
+    };
+    go.onclick=function(){ ov.style.display="none"; if(apres) apres(); };
+  }
+
+  /* écran « mot de passe oublié » */
+  function ecranRecup(){
+    erreur("");
+    document.getElementById("secCorps").innerHTML=
+      '<h2>Mot de passe oublié</h2>'+
+      '<p class="hint">Saisissez votre identifiant et le code de secours reçu à la création du compte, puis choisissez un nouveau mot de passe.</p>'+
+      '<label>Identifiant</label><input id="rcLog" autocomplete="username">'+
+      '<label>Code de secours</label><input id="rcCode" placeholder="XXXXX-XXXXX-XXXXX-XXXXX" autocomplete="off" style="font-family:var(--mono,monospace);text-transform:uppercase;letter-spacing:1px">'+
+      '<label>Nouveau mot de passe (8 caractères minimum)</label><input id="rcM1" type="password">'+
+      '<label>Confirmation</label><input id="rcM2" type="password">'+
+      '<button class="go" id="rcGo">Réinitialiser le mot de passe</button>'+
+      '<button type="button" id="rcBack" class="lien">Retour à la connexion</button>';
+    document.getElementById("rcBack").onclick=function(){ ecranConnexion(); };
+    var go=document.getElementById("rcGo");
+    go.onclick=function(){
+      var log=val("rcLog"), code=val("rcCode"), m1=val("rcM1"), m2=val("rcM2");
+      if(!log) return erreur("Indiquez votre identifiant.");
+      if(!code) return erreur("Saisissez le code de secours.");
+      if(m1.length<8) return erreur("Le mot de passe doit faire au moins 8 caractères.");
+      if(m1!==m2) return erreur("Les deux mots de passe ne correspondent pas.");
+      erreur(""); go.disabled=true;
+      reinitMdp(log, code, m1).then(function(ncode){
+        ecranCode(ncode, "compte", function(){ ecranConnexion("Mot de passe réinitialisé. Connectez-vous avec le nouveau mot de passe."); });
+      }).catch(function(err){ erreur(err.message); go.disabled=false; });
+    };
+    document.getElementById("rcLog").focus();
+  }
+
+  /* ---------- interface ---------- */
+  var CSS=''+
+  '#secOv{position:fixed;inset:0;background:linear-gradient(160deg,#5A2E12,#3A1D0B);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px}'+
+  '#secBox{width:100%;max-width:380px;background:#fff;border-radius:16px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.35)}'+
+  '#secBox h2{margin:0 0 4px;font-size:19px;color:#5A2E12}'+
+  '#secBox p.hint{margin:0 0 16px;font-size:12px;color:#6b7280;line-height:1.45}'+
+  '#secBox label{display:block;font-size:12px;font-weight:600;color:#374151;margin:10px 0 4px}'+
+  '#secBox input,#secBox select{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #d1d5db;border-radius:9px;font-size:15px;font-family:inherit}'+
+  '#secBox input:focus,#secBox select:focus{outline:none;border-color:#9A5A2A;box-shadow:0 0 0 3px rgba(154,90,42,.15)}'+
+  '#secBox button.go{width:100%;margin-top:16px;padding:12px;border:0;border-radius:9px;background:#9A5A2A;color:#fff;font-size:15px;font-weight:600;cursor:pointer}'+
+  '#secBox button.go:disabled{opacity:.6;cursor:default}'+
+  '#secErr{display:none;margin-top:12px;padding:9px 11px;border-radius:8px;background:#fef2f2;color:#b91c1c;font-size:12.5px;border:1px solid #fecaca}'+
+  '#secLogo{height:38px;margin:0 auto 14px;display:flex;align-items:center;justify-content:center}#secLogo img{height:38px;width:auto;max-width:100%;object-fit:contain}'+'#secBox .lien{display:block;width:100%;margin-top:12px;background:none;border:0;color:#9A5A2A;font-size:12.5px;text-decoration:underline;cursor:pointer;padding:4px}'+'.codeBox{font-family:var(--mono,monospace);font-size:19px;font-weight:700;letter-spacing:1.5px;color:#5A2E12;background:#f7efe6;border:1px dashed #C07030;border-radius:9px;padding:14px;text-align:center;margin:6px 0 4px;user-select:all;word-break:break-all}'+
+  '.secPill{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:#F0E0CF;color:#5A2E12;font-size:12px;font-weight:600}'+
+  '#secAdmin{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:9998;display:none;align-items:flex-start;justify-content:center;padding:24px;overflow:auto}'+
+  '#secAdminBox{width:100%;max-width:640px;background:#fff;border-radius:14px;padding:20px}'+
+  '#secAdminBox table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}'+
+  '#secAdminBox th,#secAdminBox td{padding:7px 6px;border-bottom:1px solid #e5e7eb;text-align:left}'+
+  '#secAdminBox .row{display:flex;gap:8px;flex-wrap:wrap}'+
+  '#secAdminBox .row>div{flex:1;min-width:120px}';
+
+  var st=document.createElement("style"); st.textContent=CSS; document.head.appendChild(st);
+
+  var ov=document.createElement("div"); ov.id="secOv";
+  ov.innerHTML='<div id="secBox"><div id="secLogo"><img src="data:image/png;base64,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" alt="Compagnie des Caoutchoucs du Godo"></div><div id="secCorps"></div><div id="secErr"></div></div>';
+  document.body.appendChild(ov);
+
+  var admin=document.createElement("div"); admin.id="secAdmin";
+  admin.innerHTML='<div id="secAdminBox"></div>';
+  document.body.appendChild(admin);
+
+  function erreur(msg){ var e=document.getElementById("secErr"); e.style.display=msg?"block":"none"; e.textContent=msg||""; }
+
+  function ecranPremier(){
+    document.getElementById("secCorps").innerHTML=
+      '<h2>Première installation</h2>'+
+      '<p class="hint">Créez le compte administrateur. Ce mot de passe protège l\'ensemble des données de l\'appareil : elles sont chiffrées et illisibles sans lui. Un code de secours vous sera remis juste après pour pouvoir le réinitialiser en cas d\'oubli.</p>'+
+      '<label>Nom de l\'agent</label><input id="secNom" autocomplete="off" placeholder="Nom et prénoms">'+
+      '<label>Identifiant</label><input id="secLog" autocomplete="off" placeholder="ex. admin">'+
+      '<label>Mot de passe (8 caractères minimum)</label><input id="secMdp" type="password">'+
+      '<label>Confirmation</label><input id="secMdp2" type="password">'+
+      '<button class="go" id="secGo">Créer le compte</button>';
+    document.getElementById("secGo").onclick=function(){
+      var nom=val("secNom"), log=val("secLog"), m1=val("secMdp"), m2=val("secMdp2");
+      if(!log) return erreur("Indiquez un identifiant.");
+      if(m1.length<8) return erreur("Le mot de passe doit faire au moins 8 caractères.");
+      if(m1!==m2) return erreur("Les deux mots de passe ne correspondent pas.");
+      erreur(""); this.disabled=true;
+      creerCompteAvecCode({login:log, nom:nom||log, role:"admin", mdp:m1})
+        .then(function(res){ ecranCode(res.code, "compte administrateur", function(){ ouvrirSession(log, m1).then(demarrer); }); })
+        .catch(function(e){ erreur(e.message); document.getElementById("secGo").disabled=false; });
+    };
+    document.getElementById("secNom").focus();
+  }
+
+  function sbClient(){ return window.supabaseClient; }
+  var K_SB_SESS="rp_session_sb";
+  function traduireAuth(m){
+    m=m||"";
+    if(/Invalid login credentials/i.test(m)) return "E-mail ou mot de passe incorrect.";
+    if(/Email not confirmed/i.test(m)) return "E-mail non confirmé : vérifiez votre boîte de réception.";
+    if(/network|fetch|Failed/i.test(m)) return "Connexion au serveur impossible. Vérifiez votre réseau et réessayez.";
+    return m;
+  }
+  function creerCompteLocal(email, mdp, user){
+    return creerCompte({login:email, nom:(user&&user.email)||email, role:"agent", mdp:mdp})
+      .then(function(){ return ouvrirSession(email, mdp); });
+  }
+  function ouvrirOuCreerLocal(email, mdp, user){
+    if(trouver(email)){
+      return ouvrirSession(email, mdp).catch(function(){
+        /* mot de passe changé côté serveur : on refait le cache local */
+        ecrireComptes(comptes().filter(function(u){ return u.login!==email; }));
+        return creerCompteLocal(email, mdp, user);
+      });
+    }
+    return creerCompteLocal(email, mdp, user);
+  }
+  /* Connexion unifiée : Supabase en ligne (portable), cache local hors-ligne */
+  function connexionUnifiee(email, mdp){
+    email=(email||"").trim().toLowerCase();
+    if(!email) return Promise.reject(new Error("Indiquez votre adresse e-mail."));
+    if(!mdp)   return Promise.reject(new Error("Indiquez votre mot de passe."));
+    var enLigne = navigator.onLine && sbClient();
+    if(!enLigne){
+      if(!trouver(email)) return Promise.reject(new Error("Première connexion sur cet appareil : une connexion internet est nécessaire."));
+      return ouvrirSession(email, mdp).then(demarrer);
+    }
+    return sbClient().auth.signInWithPassword({ email:email, password:mdp }).then(function(r){
+      if(r.error) throw new Error(traduireAuth(r.error.message));
+      var sess=r.data && r.data.session, user=r.data && r.data.user;
+      return ouvrirOuCreerLocal(email, mdp, user).then(function(){
+        if(sess){ try{ SEC.set(K_SB_SESS, { refresh_token:sess.refresh_token, email:email }); }catch(e){} }
+        demarrer();
+        if(window.synchroniserPlanteurs){ window.synchroniserPlanteurs().catch(function(e){ console.log("[sync] "+e.message); }); }
+      });
+    });
+  }
+  /* Mot de passe oublié : e-mail de réinitialisation Supabase */
+  function ecranReset(){
+    erreur("");
+    document.getElementById("secCorps").innerHTML=
+      '<h2>Mot de passe oublié</h2>'+
+      '<p class="hint">Saisissez l\'adresse e-mail de votre compte. Un lien de réinitialisation vous sera envoyé.</p>'+
+      '<label>Adresse e-mail</label><input id="rsMail" type="email" inputmode="email" autocomplete="username">'+
+      '<button class="go" id="rsGo">Envoyer le lien</button>'+
+      '<button type="button" id="rsBack" class="lien">Retour à la connexion</button>';
+    document.getElementById("rsBack").onclick=function(){ ecranConnexion(); };
+    var go=document.getElementById("rsGo");
+    go.onclick=function(){
+      var mail=val("rsMail");
+      if(!mail) return erreur("Indiquez votre adresse e-mail.");
+      if(!navigator.onLine || !sbClient()) return erreur("Une connexion internet est nécessaire pour réinitialiser le mot de passe.");
+      erreur(""); go.disabled=true;
+      sbClient().auth.resetPasswordForEmail(mail.trim(), { redirectTo: location.href.split("#")[0] }).then(function(){
+        document.getElementById("secCorps").innerHTML=
+          '<h2>E-mail envoyé</h2>'+
+          '<p class="hint">Si un compte existe pour <b>'+mail.trim()+'</b>, un lien de réinitialisation vient d\'être envoyé. Ouvrez-le sur cet appareil pour choisir un nouveau mot de passe.</p>'+
+          '<button type="button" class="go" id="rsOk">Retour à la connexion</button>';
+        document.getElementById("rsOk").onclick=function(){ ecranConnexion(); };
+      }).catch(function(e){ erreur(traduireAuth(e.message)); go.disabled=false; });
+    };
+    document.getElementById("rsMail").focus();
+  }
+  /* Écran ouvert quand l'utilisateur revient via le lien de réinitialisation */
+  function ecranNouveauMdp(){
+    ov.style.display="flex"; erreur("");
+    document.getElementById("secCorps").innerHTML=
+      '<h2>Nouveau mot de passe</h2>'+
+      '<p class="hint">Choisissez un nouveau mot de passe pour votre compte.</p>'+
+      '<label>Nouveau mot de passe (8 caractères minimum)</label><input id="npM1" type="password">'+
+      '<label>Confirmation</label><input id="npM2" type="password">'+
+      '<button class="go" id="npGo">Enregistrer</button>';
+    var go=document.getElementById("npGo");
+    go.onclick=function(){
+      var m1=val("npM1"), m2=val("npM2");
+      if(m1.length<8) return erreur("Le mot de passe doit faire au moins 8 caractères.");
+      if(m1!==m2) return erreur("Les deux mots de passe ne correspondent pas.");
+      erreur(""); go.disabled=true;
+      sbClient().auth.updateUser({ password:m1 }).then(function(r){
+        if(r && r.error) throw new Error(traduireAuth(r.error.message));
+        ecranConnexion("Mot de passe mis à jour. Connectez-vous avec le nouveau mot de passe.");
+      }).catch(function(e){ erreur(traduireAuth(e.message)); go.disabled=false; });
+    };
+  }
+  function ecranConnexion(msg){
+    ov.style.display="flex";
+    document.getElementById("secCorps").innerHTML=
+      '<h2>Connexion</h2>'+
+      '<p class="hint">'+(msg||"Connectez-vous avec vos identifiants. Votre espace vous suit sur tous vos appareils.")+'</p>'+
+      '<label>Adresse e-mail</label><input id="secLog" type="email" inputmode="email" autocomplete="username">'+
+      '<label>Mot de passe</label><input id="secMdp" type="password" autocomplete="current-password">'+
+      '<button class="go" id="secGo">Se connecter</button>'+
+      '<button type="button" class="lien" id="secForgot">Mot de passe oublié ?</button>';
+    document.getElementById("secForgot").onclick=function(){ ecranReset(); };
+    var go=document.getElementById("secGo");
+    go.onclick=function(){
+      erreur(""); go.disabled=true;
+      connexionUnifiee(val("secLog"), val("secMdp"))
+        .catch(function(e){ erreur(e.message); go.disabled=false; document.getElementById("secMdp").value=""; });
+    };
+    document.getElementById("secMdp").onkeydown=function(e){ if(e.key==="Enter") go.click(); };
+    document.getElementById("secLog").focus();
+  }
+
+  function val(id){ return (document.getElementById(id).value||"").trim(); }
+
+  var lance=false;
+  function demarrer(){
+    erreur(""); ov.style.display="none";
+    surveillerInactivite();
+    if(!lance){ lance=true; window.__APP__(); }
+    else window.dispatchEvent(new Event("rp:deverrouille"));
+    badge();
+  }
+
+  function verrouiller(){
+    persister();
+    dek=null; cache={}; moi=null;
+    ov.style.display="flex";
+    ecranConnexion("Session verrouillée après inactivité. Reconnectez-vous pour continuer.");
+  }
+
+  var idle=null;
+  function surveillerInactivite(){
+    function reset(){ clearTimeout(idle); idle=setTimeout(function(){ if(dek) location.reload(); }, VERROU_MS); }
+    ["click","keydown","touchstart","pointerdown"].forEach(function(ev){ document.addEventListener(ev, reset, true); });
+    document.addEventListener("visibilitychange", function(){ if(document.hidden) persister(); });
+    window.addEventListener("pagehide", persister);
+    reset();
+  }
+
+  function badge(){
+    var tb=document.querySelector("header .toolbar");
+    if(!tb || document.getElementById("secBadge")) return;
+    var d=document.createElement("div"); d.style.display="flex"; d.style.gap="8px"; d.style.alignItems="center";
+    d.innerHTML='<span class="secPill" id="secBadge"></span>'+
+      '<button class="btn" id="secCode" type="button">Code de secours</button>'+
+      (SEC.estAdmin()?'<button class="btn" id="secComptes" type="button">Comptes</button>':'')+
+      '<button class="btn" id="secOut" type="button">Verrouiller</button>';
+    tb.appendChild(d);
+    document.getElementById("secBadge").textContent=moi.nom+" · "+(moi.role==="admin"?"admin":"agent");
+    document.getElementById("secOut").onclick=function(){ persister().then(function(){ location.reload(); }); };
+    var bcode=document.getElementById("secCode"); if(bcode) bcode.onclick=function(){
+      if(!dekBrutSession){ alert("Reconnectez-vous pour générer un code."); return; }
+      definirCode(moi.login, dekBrutSession).then(function(code){ ecranCode(code, "compte", function(){}); });
+    };
+    var bc=document.getElementById("secComptes"); if(bc) bc.onclick=panneauComptes;
+  }
+
+  /* ---------- gestion des comptes (admin) ---------- */
+  function panneauComptes(){
+    var l=comptes();
+    var lignes=l.map(function(u){
+      return '<tr><td><b>'+u.login+'</b><br><span style="color:#6b7280">'+(u.nom||"")+'</span></td>'+
+        '<td>'+(u.role==="admin"?"Administrateur":"Agent")+'</td>'+
+        '<td>'+(u.plage?u.plage.min+" – "+u.plage.max:"—")+'</td>'+
+        '<td>'+(u.actif?"actif":"désactivé")+'</td>'+
+        '<td style="text-align:right">'+(u.login===moi.login?"":
+          '<button class="btn" data-sa="r" data-l="'+u.login+'">Réinit. mdp</button> '+
+          '<button class="btn" data-sa="t" data-l="'+u.login+'">'+(u.actif?"Désactiver":"Réactiver")+'</button> '+
+          '<button class="btn" data-sa="d" data-l="'+u.login+'">Suppr.</button>')+'</td></tr>';
+    }).join("");
+    document.getElementById("secAdminBox").innerHTML=
+      '<h2 style="margin:0 0 4px;font-size:18px;color:#5A2E12">Comptes de l\'équipe</h2>'+
+      '<p style="font-size:12px;color:#6b7280;margin:0 0 6px;line-height:1.45">Chaque agent dispose de son identifiant. La plage de codes évite que deux téléphones attribuent le même code planteur hors ligne. Un compte créé ici ne fonctionne que sur cet appareil : pour équiper un autre téléphone, créez-y le compte puis restaurez une sauvegarde.</p>'+
+      '<table><thead><tr><th>Identifiant</th><th>Rôle</th><th>Plage de codes</th><th>État</th><th></th></tr></thead><tbody>'+lignes+'</tbody></table>'+
+      '<h3 style="font-size:14px;margin:18px 0 6px">Ajouter un agent</h3>'+
+      '<div class="row"><div><label style="font-size:12px">Nom</label><input id="naNom"></div>'+
+      '<div><label style="font-size:12px">Identifiant</label><input id="naLog"></div></div>'+
+      '<div class="row" style="margin-top:8px"><div><label style="font-size:12px">Mot de passe</label><input id="naMdp" type="password"></div>'+
+      '<div><label style="font-size:12px">Rôle</label><select id="naRole"><option value="agent">Agent</option><option value="admin">Administrateur</option></select></div></div>'+
+      '<div class="row" style="margin-top:8px"><div><label style="font-size:12px">Code de début</label><input id="naMin" type="number" placeholder="ex. 1000"></div>'+
+      '<div><label style="font-size:12px">Code de fin</label><input id="naMax" type="number" placeholder="ex. 1999"></div></div>'+
+      '<div id="naErr" style="display:none;color:#b91c1c;font-size:12.5px;margin-top:10px"></div>'+
+      '<div style="display:flex;gap:8px;margin-top:14px"><button class="btn primary" id="naGo">Créer le compte</button>'+
+      '<button class="btn" id="naClose">Fermer</button></div>';
+    admin.style.display="flex";
+
+    document.getElementById("naClose").onclick=function(){ admin.style.display="none"; };
+    admin.querySelectorAll("[data-sa]").forEach(function(b){
+      b.onclick=function(){
+        var lg=b.getAttribute("data-l"), sa=b.getAttribute("data-sa");
+        if(sa==="r"){ adminReinit(lg); return; }
+        if(sa==="t"){ var u=trouver(lg); majCompte(lg,{actif:!u.actif}); }
+        else { if(!confirm("Supprimer le compte "+lg+" ? Ses fiches restent dans le registre.")) return;
+               ecrireComptes(comptes().filter(function(x){ return x.login!==lg; })); }
+        panneauComptes();
+      };
+    });
+    document.getElementById("naGo").onclick=function(){
+      var e=document.getElementById("naErr");
+      function ko(m){ e.style.display="block"; e.textContent=m; }
+      var log=val("naLog"), mdp=val("naMdp");
+      if(!log) return ko("Indiquez un identifiant.");
+      if(trouver(log)) return ko("Cet identifiant existe déjà.");
+      if(mdp.length<8) return ko("Mot de passe : 8 caractères minimum.");
+      var mn=parseInt(val("naMin"),10), mx=parseInt(val("naMax"),10);
+      var plage=(mn&&mx&&mx>mn)?{min:mn,max:mx}:null;
+      e.style.display="none";
+      // le nouvel agent doit partager la même clé de données que l'appareil
+      C.subtle.exportKey ? null : null;
+      cleBrute().then(function(brut){
+        return creerCompteAvecCode({login:log, nom:val("naNom")||log, role:document.getElementById("naRole").value,
+                            mdp:mdp, plage:plage, dekBrut:brut});
+      }).then(function(res){ admin.style.display="none"; ecranCode(res.code, "compte de "+log, function(){ panneauComptes(); }); })
+        .catch(function(err){ ko(err.message||"Création impossible"); });
+    };
+  }
+
+  /* la DEK est non-extractible une fois importée : on conserve la version brute en mémoire de session */
+  var dekBrutSession=null;
+  function cleBrute(){
+    if(dekBrutSession) return Promise.resolve(dekBrutSession);
+    return Promise.reject(new Error("Reconnectez-vous pour créer un compte."));
+  }
+
+  /* on capture la DEK brute au moment de la connexion */
+  var _ouvrir=ouvrirSession;
+  ouvrirSession=function(login,mdp){
+    var u=trouver(login);
+    if(!u) return _ouvrir(login,mdp);
+    return cleMdp(mdp,u.salt,u.iter).then(function(kc){ return dechiffrer(kc,u.dek); })
+      .then(function(brut){ dekBrutSession=new Uint8Array(brut); })
+      .catch(function(){ /* mot de passe faux : _ouvrir gèrera l'erreur et le compteur */ })
+      .then(function(){ return _ouvrir(login,mdp); });
+  };
+
+  /* ---------- démarrage ---------- */
+  if(!C){
+    document.getElementById("secCorps").innerHTML=
+      '<h2>Contexte non sécurisé</h2><p class="hint">Le chiffrement nécessite une origine sécurisée. Ouvrez l\'application depuis l\'APK ou une adresse HTTPS.</p>';
+  } else {
+    if(sbClient() && sbClient().auth && sbClient().auth.onAuthStateChange){
+      sbClient().auth.onAuthStateChange(function(ev){ if(ev==="PASSWORD_RECOVERY") ecranNouveauMdp(); });
+    }
+    ecranConnexion();
+  }
+})();
+</script>
+<script>
+/* =============================================================
+   SYNCHRONISATION SUPABASE — version corrigée
+   À placer dans un <script> À PART, après le script de sécurité,
+   juste avant </body>. Surtout PAS à l'intérieur du bloc
+   de sécurité : les fonctions load() et KEY_DATA n'y existent pas.
+   ============================================================= */
+(function () {
+  "use strict";
+
+  var K_DATA = "rp_planteurs_v2";     // clé du registre dans le coffre chiffré
+  var K_SESSION = "rp_session_sb";    // jeton de session Supabase
+  var K_SYNC = "rp_dernier_sync";     // horodatage du dernier échange
+
+  function sb() { return window.supabaseClient; }
+  function dit(msg) { console.log("[sync] " + msg); }
+
+  /* ---------- lecture / écriture du registre local ----------
+     SEC est global : accessible depuis n'importe quel script. */
+  function registre() { return SEC.get(K_DATA) || []; }
+  function ecrire(l) { SEC.set(K_DATA, l); SEC.flush(); }
+
+  /* ---------- session ---------- */
+  function session() {
+    var s = SEC.get(K_SESSION);
+    if (s && s.refresh_token) {
+      return sb().auth.refreshSession({ refresh_token: s.refresh_token })
+        .then(function (r) {
+          if (r.error) throw new Error("Session expirée, reconnectez-vous");
+          SEC.set(K_SESSION, { refresh_token: r.data.session.refresh_token, email: s.email });
+          return r.data.user;
+        });
+    }
+    var email = prompt("Adresse e-mail du compte Supabase :");
+    if (!email) return Promise.reject(new Error("Connexion annulée"));
+    var mdp = prompt("Mot de passe :");
+    if (!mdp) return Promise.reject(new Error("Connexion annulée"));
+    return sb().auth.signInWithPassword({ email: email.trim(), password: mdp })
+      .then(function (r) {
+        if (r.error) throw new Error(r.error.message);
+        SEC.set(K_SESSION, { refresh_token: r.data.session.refresh_token, email: email.trim() });
+        return r.data.user;
+      });
+  }
+
+  function profil() {
+    return sb().from("profils").select("id, organisation_id, nom, role").single()
+      .then(function (r) {
+        if (r.error) throw new Error("Profil absent : ajoutez une ligne dans la table profils pour ce compte");
+        return r.data;
+      });
+  }
+
+  /* ---------- conversion : fiche locale -> ligne Supabase ----------
+     Les noms des champs locaux sont ceux du formulaire :
+     codePlanteur, tel, ville, plantation.superficie, geo.lat / geo.lng.  */
+  function versLigne(f, p) {
+    var g = f.geo || {}, pl = f.plantation || {};
+    var nom = f.type === "cooperative"
+      ? (f.raison || "")
+      : ((f.nom || "") + " " + (f.prenom || "")).trim();
+    return {
+      id: f.id,
+      organisation_id: p.organisation_id,
+      agent_id: p.id,
+      code_planteur: f.codePlanteur || null,
+      code_plantation: f.codePlantation || null,
+      nom_complet: nom,
+      ville: f.ville || null,
+      telephone: f.tel || null,
+      superficie: pl.superficie != null ? Number(pl.superficie) : null,
+      latitude: g.lat != null ? Number(g.lat) : null,
+      longitude: g.lng != null ? Number(g.lng) : null,
+      donnees: f,
+      supprime: false,
+      modifie_le: f.modifie || f.cree || new Date().toISOString()
+    };
+  }
+
+  function versFiche(ligne) {
+    var f = ligne.donnees || {};
+    f.id = ligne.id;
+    f.codePlanteur = ligne.code_planteur;
+    f.codePlantation = ligne.code_plantation;
+    f.modifie = ligne.modifie_le;
+    return f;
+  }
+
+  /* ---------- synchronisation ---------- */
+  function synchroniser() {
+    if (!sb()) return Promise.reject(new Error("Client Supabase absent"));
+    if (!navigator.onLine) return Promise.reject(new Error("Aucune connexion internet"));
+
+    var p, depuis = SEC.get(K_SYNC) || "1970-01-01T00:00:00.000Z";
+    var envoyees = 0;
+
+    return session().then(profil).then(function (pr) {
+      p = pr;
+      var locales = registre();
+      var aEnvoyer = locales.filter(function (f) {
+        return (f.modifie || f.cree || "") > depuis;
+      });
+      envoyees = aEnvoyer.length;
+      if (!aEnvoyer.length) return { error: null };
+      return sb().from("planteurs")
+        .upsert(aEnvoyer.map(function (f) { return versLigne(f, p); }), { onConflict: "id" });
+    }).then(function (r) {
+      if (r && r.error) throw new Error(r.error.message);
+      return sb().from("planteurs").select("*")
+        .gt("modifie_le", depuis).order("modifie_le", { ascending: true });
+    }).then(function (r) {
+      if (r.error) throw new Error(r.error.message);
+
+      var locales = registre(), index = {}, ajouts = 0, majs = 0;
+      locales.forEach(function (f, i) { index[f.id] = i; });
+
+      r.data.forEach(function (ligne) {
+        var i = index[ligne.id];
+        if (i === undefined) { locales.push(versFiche(ligne)); ajouts++; return; }
+        if ((ligne.modifie_le || "") > (locales[i].modifie || "")) {
+          locales[i] = versFiche(ligne); majs++;
+        }
+      });
+
+      locales = locales.filter(function (f) { return !f.supprime; });
+      ecrire(locales);
+      SEC.set(K_SYNC, new Date().toISOString());
+
+      window.dispatchEvent(new CustomEvent("rp:donnees"));
+      return { envoyees: envoyees, ajouts: ajouts, majs: majs };
+    });
+  }
+
+  /* ---------- bouton dans la barre d'outils ---------- */
+  function poserBouton() {
+    var tb = document.querySelector("header .toolbar");
+    if (!tb || document.getElementById("btnSync")) return;
+    if (!window.SEC || !SEC.user()) return;     // on attend l'ouverture de session
+    var b = document.createElement("button");
+    b.id = "btnSync"; b.className = "btn sm"; b.type = "button";
+    b.textContent = "Synchroniser";
+    b.onclick = function () {
+      b.disabled = true; b.textContent = "Synchronisation…";
+      synchroniser().then(function (res) {
+        b.textContent = "Synchroniser"; b.disabled = false;
+        alert(res.envoyees + " fiche(s) envoyée(s), " + res.ajouts + " reçue(s), " + res.majs + " mise(s) à jour.");
+      }).catch(function (e) {
+        b.textContent = "Synchroniser"; b.disabled = false;
+        dit(e.message);
+        alert("Synchronisation impossible : " + e.message);
+      });
+    };
+    tb.insertBefore(b, tb.firstChild);
+  }
+
+  var t = setInterval(function () {
+    poserBouton();
+    if (document.getElementById("btnSync")) clearInterval(t);
+  }, 500);
+
+  window.addEventListener("online", function () {
+    if (window.SEC && SEC.user() && SEC.get(K_SESSION)) {
+      synchroniser().catch(function () { /* nouvel essai plus tard */ });
+    }
+  });
+
+  window.synchroniserPlanteurs = synchroniser;
+})();
+</script>
+<script>
+/* Installation hors ligne : le service worker garde une copie locale
+   de l'application, ce qui permet de la lancer sans réseau. */
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker.register("sw.js").catch(function (e) {
+      console.log("[pwa] installation hors ligne indisponible :", e.message);
+    });
+  });
+}
+</script>
+</body>
+</html>
