@@ -1456,14 +1456,7 @@ window.__APP__=function(){
   }
   function chargerAgents(){
     var box=$("adminAgents");
-    var form='<div class="admadd"><b>Créer un compte agent</b><div class="admaddrow">'+
-      '<input id="agEmail" type="email" placeholder="e-mail de l\'agent">'+
-      '<input id="agNom" type="text" placeholder="nom (facultatif)">'+
-      '<input id="agPass" type="text" placeholder="mot de passe (8+)">'+
-      '<input id="agMin" type="number" placeholder="code min">'+
-      '<input id="agMax" type="number" placeholder="code max">'+
-      '<button class="btn sm" id="agCreate">Créer l\'agent</button>'+
-      '</div><p class="hint" style="margin:4px 0 0">Tu communiques l\'e-mail et le mot de passe à l\'agent ; il pourra le changer après connexion.</p></div>';
+    var form='<div class="admadd"><b>Comptes agents</b><p class="hint" style="margin:4px 0 0">Les agents créent eux-mêmes leur compte via « Créer un compte » sur l\'écran de connexion. Ils apparaissent ensuite ici, où tu gères leur rôle, leur plage de codes et leur activation. Pour supprimer un compte : Supabase → Authentication → Users.</p></div>';
     box.innerHTML=form+'<div id="agentsList"><p class="hint">Chargement de la liste…</p></div>';
     var cbtn=$("agCreate"); if(cbtn) cbtn.onclick=ajouterAgent;
     var list=$("agentsList");
@@ -1481,10 +1474,10 @@ window.__APP__=function(){
           '<td class="r">'+(cnt[mail]||0)+'</td>'+
           '<td class="nowrap"><input data-f="min" type="number" value="'+(a.plage_min!=null?a.plage_min:"")+'" placeholder="min"> – <input data-f="max" type="number" value="'+(a.plage_max!=null?a.plage_max:"")+'" placeholder="max"></td>'+
           '<td class="c"><input data-f="actif" type="checkbox"'+(a.actif!==false?" checked":"")+'></td>'+
-          '<td class="nowrap"><button class="btn sm" data-save="'+esc(a.id)+'">Enregistrer</button> <button class="btn sm admdel" data-del="'+esc(a.id)+'" data-mail="'+esc(mail)+'">Supprimer</button></td>'+
+          '<td class="nowrap"><button class="btn sm" data-save="'+esc(a.id)+'">Enregistrer</button></td>'+
           '</tr>';
       });
-      h+='</tbody></table><p class="hint" style="margin-top:8px"><b>Rôle</b> : agent ou admin. <b>« Actif » décoché puis Enregistrer</b> : l\'agent ne pourra plus se connecter (désactivation). <b>Enregistrer</b> applique les changements ; <b>Supprimer</b> efface le compte.</p>';
+      h+='</tbody></table><p class="hint" style="margin-top:8px"><b>Rôle</b> : agent ou admin. <b>« Actif » décoché puis Enregistrer</b> : l\'agent ne pourra plus se connecter (désactivation). <b>Enregistrer</b> applique les changements.</p>';
       list.innerHTML=h;
       Array.prototype.forEach.call(list.querySelectorAll("[data-save]"),function(btn){
         btn.onclick=function(){ enregistrerAgent(btn.getAttribute("data-save"), btn.parentNode.parentNode); };
@@ -2801,8 +2794,10 @@ window.__APP__=function(){
       '<label>Adresse e-mail</label><input id="secLog" type="email" inputmode="email" autocomplete="username">'+
       '<label>Mot de passe</label><input id="secMdp" type="password" autocomplete="current-password">'+
       '<button class="go" id="secGo">Se connecter</button>'+
-      '<button type="button" class="lien" id="secForgot">Mot de passe oublié ?</button>';
+      '<button type="button" class="lien" id="secForgot">Mot de passe oublié ?</button>'+
+      '<button type="button" class="lien" id="secSignup">Pas encore de compte ? Créer un compte</button>';
     document.getElementById("secForgot").onclick=function(){ ecranReset(); };
+    document.getElementById("secSignup").onclick=function(){ ecranInscription(); };
     var go=document.getElementById("secGo");
     go.onclick=function(){
       erreur(""); go.disabled=true;
@@ -2972,7 +2967,7 @@ window.__APP__=function(){
       var __d=document.getElementById("secDiag");
       if(__d){
         var __ok=!!sbClient();
-        __d.textContent = "Registre cloud v19 — " + (__ok ? "serveur cloud pret" : "serveur NON charge (mode hors-ligne)");
+        __d.textContent = "Registre cloud v20 — " + (__ok ? "serveur cloud pret" : "serveur NON charge (mode hors-ligne)");
         __d.style.color = __ok ? "#2e7d32" : "#b45309";
       }
     }catch(__e){}
