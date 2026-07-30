@@ -242,6 +242,7 @@
       <button class="btn sm" id="btnBackup">Sauvegarder</button>
       <button class="btn sm ghost" id="btnImport">Restaurer</button>
       <input type="file" id="fileImport" accept="application/json,.json" hidden>
+      <button class="btn sm" id="btnAdmin" style="display:none">Admin</button>
     </div>
   </header>
 
@@ -1425,6 +1426,74 @@ window.__APP__=function(){
       if(res && ((res.ajouts||0)+(res.majs||0))>0) toast("Nouvelles fiches récupérées du serveur");
     }).catch(function(){});
   }, 3600000);
+  /* ================= MODULE ADMINISTRATEUR ================= */
+  function estAdminApp(){ return (((window.SEC&&SEC.user&&SEC.user())||{}).role)==='admin'; }
+  function majBoutonAdmin(){ var b=$("btnAdmin"); if(b) b.style.display=estAdminApp()?"":"none"; }
+  function carteStat(t,v){ return '<div class="admcard"><div class="admcard-t">'+t+'</div><div class="admcard-v">'+v+'</div></div>'; }
+  function rendreDashboard(){
+    var recs=records||[], total=recs.length, parAgent={}, parVillage={}, superf=0, geoloc=0;
+    recs.forEach(function(r){
+      var a=r.agent||"—"; parAgent[a]=(parAgent[a]||0)+1;
+      var v=r.ville||"—"; parVillage[v]=(parVillage[v]||0)+1;
+      superf+=Number((r.plantation||{}).superficie)||0;
+      if(r.geo) geoloc++;
+    });
+    function tri(o){ return Object.keys(o).sort(function(a,b){return o[b]-o[a];}); }
+    var h='<div class="admcards">'+carteStat("Fiches totales",total)+carteStat("Superficie",superf.toFixed(1)+" ha")+
+          carteStat("Géolocalisées",geoloc)+carteStat("Agents ayant saisi",tri(parAgent).length)+'</div>';
+    h+='<h4>Fiches par agent</h4><table class="admtab"><tbody>'+
+       tri(parAgent).map(function(a){return '<tr><td>'+esc(a)+'</td><td class="r">'+parAgent[a]+'</td></tr>';}).join("")+'</tbody></table>';
+    h+='<h4 style="margin-top:12px">Fiches par village (top 12)</h4><table class="admtab"><tbody>'+
+       tri(parVillage).slice(0,12).map(function(v){return '<tr><td>'+esc(v)+'</td><td class="r">'+parVillage[v]+'</td></tr>';}).join("")+'</tbody></table>';
+    $("adminDash").innerHTML=h;
+  }
+  function chargerAgents(){
+    var box=$("adminAgents");
+    if(!window.supabaseClient){ box.innerHTML="<p class='hint'>Serveur non disponible (hors ligne).</p>"; return; }
+    box.innerHTML="<p class='hint'>Chargement…</p>";
+    window.supabaseClient.from("profils").select("id,email,nom,role,actif,plage_min,plage_max").then(function(res){
+      if(res.error){ box.innerHTML="<p class='hint'>Erreur : "+esc(res.error.message)+"</p>"; return; }
+      var ag=res.data||[], cnt={};
+      (records||[]).forEach(function(r){ var a=r.agent||""; cnt[a]=(cnt[a]||0)+1; });
+      var h='<table class="admtab"><thead><tr><th>Agent</th><th>Rôle</th><th class="r">Fiches</th><th>Plage de codes</th><th>Actif</th><th></th></tr></thead><tbody>';
+      ag.forEach(function(a){
+        var mail=a.email||a.nom||a.id;
+        h+='<tr data-id="'+esc(a.id)+'">'+
+          '<td>'+esc(mail)+'</td>'+
+          '<td><select data-f="role"><option value="agent"'+(a.role!=="admin"?" selected":"")+'>agent</option><option value="admin"'+(a.role==="admin"?" selected":"")+'>admin</option></select></td>'+
+          '<td class="r">'+(cnt[mail]||0)+'</td>'+
+          '<td class="nowrap"><input data-f="min" type="number" value="'+(a.plage_min!=null?a.plage_min:"")+'" placeholder="min"> – <input data-f="max" type="number" value="'+(a.plage_max!=null?a.plage_max:"")+'" placeholder="max"></td>'+
+          '<td class="c"><input data-f="actif" type="checkbox"'+(a.actif!==false?" checked":"")+'></td>'+
+          '<td><button class="btn sm" data-save="'+esc(a.id)+'">Enregistrer</button></td>'+
+          '</tr>';
+      });
+      h+='</tbody></table><p class="hint" style="margin-top:10px">Pour ajouter un agent : demande-lui de créer son compte via « Créer un compte » dans l\'application (ou crée-le dans Supabase → Authentication → Users). Il apparaîtra ici, où tu pourras lui attribuer une plage de codes.</p>';
+      box.innerHTML=h;
+      Array.prototype.forEach.call(box.querySelectorAll("[data-save]"),function(btn){
+        btn.onclick=function(){ enregistrerAgent(btn.getAttribute("data-save"), btn.parentNode.parentNode); };
+      });
+    }).catch(function(e){ box.innerHTML="<p class='hint'>Erreur : "+esc(e.message||e)+"</p>"; });
+  }
+  function enregistrerAgent(id, tr){
+    var q=function(s){return tr.querySelector('[data-f="'+s+'"]');};
+    var mn=q("min").value, mx=q("max").value;
+    if(mn!==""&&mx!==""&&Number(mx)<Number(mn)){ toast("La plage est invalide (max < min)",true); return; }
+    var patch={ role:q("role").value, actif:q("actif").checked,
+                plage_min: mn===""?null:Number(mn), plage_max: mx===""?null:Number(mx) };
+    window.supabaseClient.from("profils").update(patch).eq("id", id).then(function(res){
+      if(res.error) toast("Échec : "+res.error.message, true); else toast("Agent mis à jour ✓");
+    }).catch(function(e){ toast("Échec : "+(e.message||e), true); });
+  }
+  function ouvrirAdmin(){
+    if(!estAdminApp()){ toast("Réservé à l'administrateur",true); return; }
+    var ov=$("adminOverlay");
+    var c=$("adminClose"); if(c) c.onclick=fermerAdmin;
+    ov.onclick=function(e){ if(e.target===ov) fermerAdmin(); };
+    ov.style.display="flex";
+    rendreDashboard(); chargerAgents();
+  }
+  function fermerAdmin(){ $("adminOverlay").style.display="none"; }
+
   function syncCounters(){ $("cPlanteur").value=nextPlanteur; $("cOrdre").value=nextOrdre; }
 
   function startEditUi(id){
@@ -2191,6 +2260,8 @@ window.__APP__=function(){
 
   /* rafraîchissement du registre après une synchronisation */
   window.addEventListener("rp:donnees",function(){ records=load(KEY_DATA,[])||[]; syncCounters(); majTout(); });
+  window.addEventListener("rp:role", majBoutonAdmin); majBoutonAdmin();
+  (function(){ var b=$("btnAdmin"); if(b) b.onclick=ouvrirAdmin; })();
 
   $("btnOrg").onclick=function(e){ e.preventDefault(); demanderOrg(); };
   $("orgMark").onclick=function(){ demanderOrg(); };
@@ -2543,6 +2614,25 @@ window.__APP__=function(){
     return creerCompteLocal(email, mdp, user);
   }
   /* Connexion unifiée : Supabase en ligne (portable), cache local hors-ligne */
+  function finaliserConnexion(email, sess, user){
+    if(sess){ try{ SEC.set(K_SB_SESS, { refresh_token:sess.refresh_token, email:email }); }catch(e){} }
+    function apres(){
+      demarrer();
+      window.dispatchEvent(new CustomEvent("rp:role"));
+      if(window.synchroniserPlanteurs){ window.synchroniserPlanteurs().catch(function(e){ console.log("[sync] "+e.message); }); }
+    }
+    if(!(sbClient() && user && user.id)){ apres(); return Promise.resolve(); }
+    return sbClient().from("profils").select("role, actif, plage_min, plage_max").eq("id", user.id).single().then(function(res){
+      if(res && res.data){
+        var d=res.data;
+        if(d.actif===false) throw new Error("Ce compte a été désactivé par l'administrateur.");
+        var patch={ role: d.role||"agent" };
+        if(d.plage_min!=null) patch.plage={ min:d.plage_min, max:(d.plage_max!=null?d.plage_max:999999) };
+        majCompte(email, patch); moi=trouver(email);
+      }
+      apres();
+    }).catch(function(e){ if(e && /désactivé/.test(e.message||"")) throw e; apres(); });
+  }
   function connexionUnifiee(email, mdp){
     email=(email||"").trim().toLowerCase();
     if(!email) return Promise.reject(new Error("Indiquez votre adresse e-mail."));
@@ -2557,9 +2647,7 @@ window.__APP__=function(){
       if(r.error){ var __er=new Error(r.error.message||"Erreur serveur"); __er.brut=(r.error.message||"")+(r.error.status?" ["+r.error.status+"]":""); throw __er; }
       var sess=r.data && r.data.session, user=r.data && r.data.user;
       return ouvrirOuCreerLocal(email, mdp, user).then(function(){
-        if(sess){ try{ SEC.set(K_SB_SESS, { refresh_token:sess.refresh_token, email:email }); }catch(e){} }
-        demarrer();
-        if(window.synchroniserPlanteurs){ window.synchroniserPlanteurs().catch(function(e){ console.log("[sync] "+e.message); }); }
+        return finaliserConnexion(email, sess, user);
       });
     }).catch(function(e){
       var brut=(e && (e.brut||e.message))||String(e)||"";
@@ -2646,9 +2734,7 @@ window.__APP__=function(){
         if(r.error) throw new Error(traduireAuth(r.error.message));
         if(r.data && r.data.session){
           return ouvrirOuCreerLocal(mail, m1, r.data.user).then(function(){
-            try{ SEC.set(K_SB_SESS, { refresh_token:r.data.session.refresh_token, email:mail }); }catch(e){}
-            demarrer();
-            if(window.synchroniserPlanteurs){ window.synchroniserPlanteurs().catch(function(e){ console.log("[sync] "+e.message); }); }
+            return finaliserConnexion(mail, r.data.session, r.data.user);
           });
         }
         document.getElementById("secCorps").innerHTML=
@@ -2818,7 +2904,7 @@ window.__APP__=function(){
       var __d=document.getElementById("secDiag");
       if(__d){
         var __ok=!!sbClient();
-        __d.textContent = "Registre cloud v13 — " + (__ok ? "serveur cloud pret" : "serveur NON charge (mode hors-ligne)");
+        __d.textContent = "Registre cloud v14 — " + (__ok ? "serveur cloud pret" : "serveur NON charge (mode hors-ligne)");
         __d.style.color = __ok ? "#2e7d32" : "#b45309";
       }
     }catch(__e){}
@@ -3381,5 +3467,29 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
 //# sourceMappingURL=jspdf.umd.min.js.map
 
 </script>
+<div id="adminOverlay" style="display:none;position:fixed;inset:0;background:rgba(40,25,12,.55);z-index:9999;align-items:flex-start;justify-content:center;overflow:auto;padding:14px">
+  <div style="background:#fff;max-width:840px;width:100%;border-radius:12px;padding:18px;margin:18px 0">
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #5A2E12;padding-bottom:8px;margin-bottom:14px">
+      <h3 style="margin:0;color:#5A2E12">Administration</h3>
+      <button class="btn sm ghost" id="adminClose">Fermer</button>
+    </div>
+    <h4>Tableau de bord</h4><div id="adminDash"></div>
+    <h4 style="margin-top:18px">Agents</h4><div id="adminAgents"></div>
+  </div>
+</div>
+<style>
+  #adminOverlay .admcards{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  #adminOverlay .admcard{flex:1;min-width:120px;background:#f7efe6;border:1px solid #e4d8c8;border-radius:8px;padding:10px}
+  #adminOverlay .admcard-t{font-size:11px;color:#7a5a30}
+  #adminOverlay .admcard-v{font-size:20px;font-weight:700;color:#5A2E12}
+  #adminOverlay .admtab{width:100%;border-collapse:collapse;font-size:13px}
+  #adminOverlay .admtab th{background:#5A2E12;color:#fff;padding:5px 8px;text-align:left;font-size:12px}
+  #adminOverlay .admtab td{border-bottom:1px solid #eee;padding:5px 8px}
+  #adminOverlay .admtab td.r,#adminOverlay .admtab th.r{text-align:right}
+  #adminOverlay .admtab td.c{text-align:center}
+  #adminOverlay .admtab .nowrap{white-space:nowrap}
+  #adminOverlay .admtab input[type=number]{width:62px;padding:3px}
+  #adminOverlay h4{color:#5A2E12;margin:6px 0}
+</style>
 </body>
 </html>
