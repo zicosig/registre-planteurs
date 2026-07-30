@@ -1463,7 +1463,15 @@ window.__APP__=function(){
       if(res.error){ box.innerHTML="<p class='hint'>Erreur : "+esc(res.error.message)+"</p>"; return; }
       var ag=res.data||[], cnt={};
       (records||[]).forEach(function(r){ var a=r.agent||""; cnt[a]=(cnt[a]||0)+1; });
-      var h='<table class="admtab"><thead><tr><th>Agent</th><th>Rôle</th><th class="r">Fiches</th><th>Plage de codes</th><th>Actif</th><th></th></tr></thead><tbody>';
+      var h='<div class="admadd"><b>Ajouter un agent</b><div class="admaddrow">'+
+        '<input id="agEmail" type="email" placeholder="e-mail de l\'agent">'+
+        '<input id="agNom" type="text" placeholder="nom (facultatif)">'+
+        '<input id="agPass" type="text" placeholder="mot de passe (8+)">'+
+        '<input id="agMin" type="number" placeholder="code min">'+
+        '<input id="agMax" type="number" placeholder="code max">'+
+        '<button class="btn sm" id="agCreate">Créer l\'agent</button>'+
+        '</div><p class="hint" style="margin:4px 0 0">Communique ensuite l\'e-mail et le mot de passe à l\'agent ; il pourra le changer après connexion.</p></div>';
+      h+='<table class="admtab"><thead><tr><th>Agent</th><th>Rôle</th><th class="r">Fiches</th><th>Plage de codes</th><th>Actif</th><th></th></tr></thead><tbody>';
       ag.forEach(function(a){
         var mail=a.email||a.nom||a.id;
         h+='<tr data-id="'+esc(a.id)+'">'+
@@ -1472,15 +1480,44 @@ window.__APP__=function(){
           '<td class="r">'+(cnt[mail]||0)+'</td>'+
           '<td class="nowrap"><input data-f="min" type="number" value="'+(a.plage_min!=null?a.plage_min:"")+'" placeholder="min"> – <input data-f="max" type="number" value="'+(a.plage_max!=null?a.plage_max:"")+'" placeholder="max"></td>'+
           '<td class="c"><input data-f="actif" type="checkbox"'+(a.actif!==false?" checked":"")+'></td>'+
-          '<td><button class="btn sm" data-save="'+esc(a.id)+'">Enregistrer</button></td>'+
+          '<td class="nowrap"><button class="btn sm" data-save="'+esc(a.id)+'">Enregistrer</button> <button class="btn sm admdel" data-del="'+esc(a.id)+'" data-mail="'+esc(mail)+'">Supprimer</button></td>'+
           '</tr>';
       });
-      h+='</tbody></table><p class="hint" style="margin-top:10px">Pour ajouter un agent : crée son compte dans Supabase → Authentication → Users (« Add user », coche « Auto Confirm User »), puis communique-lui son e-mail et son mot de passe. Il apparaîtra ici pour lui attribuer une plage de codes ; il pourra changer son mot de passe après connexion.</p>';
+      h+='</tbody></table>';
       box.innerHTML=h;
+      var cbtn=$("agCreate"); if(cbtn) cbtn.onclick=ajouterAgent;
       Array.prototype.forEach.call(box.querySelectorAll("[data-save]"),function(btn){
         btn.onclick=function(){ enregistrerAgent(btn.getAttribute("data-save"), btn.parentNode.parentNode); };
       });
+      Array.prototype.forEach.call(box.querySelectorAll("[data-del]"),function(btn){
+        btn.onclick=function(){ supprimerAgent(btn.getAttribute("data-del"), btn.getAttribute("data-mail")); };
+      });
     }).catch(function(e){ box.innerHTML="<p class='hint'>Erreur : "+esc(e.message||e)+"</p>"; });
+  }
+  function invoqueAdmin(payload){
+    return window.supabaseClient.functions.invoke("admin-agents",{ body:payload }).then(function(res){
+      var err = res.error || (res.data && res.data.error);
+      if(err) throw new Error((res.data && res.data.error) || (res.error && res.error.message) || "Erreur serveur");
+      return res.data;
+    });
+  }
+  function ajouterAgent(){
+    var email=($("agEmail").value||"").trim(), nom=($("agNom").value||"").trim(), pass=$("agPass").value||"";
+    var mn=$("agMin").value, mx=$("agMax").value;
+    if(!email){ toast("Indique l'e-mail de l'agent",true); return; }
+    if(pass.length<8){ toast("Mot de passe : 8 caractères minimum",true); return; }
+    if(mn!==""&&mx!==""&&Number(mx)<Number(mn)){ toast("Plage invalide (max < min)",true); return; }
+    var btn=$("agCreate"); if(btn) btn.disabled=true; toast("Création de l'agent…");
+    invoqueAdmin({ action:"create", email:email, nom:nom, password:pass, plage_min:mn===""?null:Number(mn), plage_max:mx===""?null:Number(mx) })
+      .then(function(){ if(btn) btn.disabled=false; toast("Agent créé ✓"); chargerAgents(); })
+      .catch(function(e){ if(btn) btn.disabled=false; toast("Échec : "+(e.message||e),true); });
+  }
+  function supprimerAgent(id, mail){
+    if(!confirm("Supprimer définitivement le compte de "+mail+" ?\nSes fiches déjà synchronisées restent dans le registre.")) return;
+    toast("Suppression…");
+    invoqueAdmin({ action:"delete", id:id })
+      .then(function(){ toast("Agent supprimé ✓"); chargerAgents(); })
+      .catch(function(e){ toast("Échec : "+(e.message||e),true); });
   }
   function enregistrerAgent(id, tr){
     var q=function(s){return tr.querySelector('[data-f="'+s+'"]');};
@@ -2935,7 +2972,7 @@ window.__APP__=function(){
       var __d=document.getElementById("secDiag");
       if(__d){
         var __ok=!!sbClient();
-        __d.textContent = "Registre cloud v16 — " + (__ok ? "serveur cloud pret" : "serveur NON charge (mode hors-ligne)");
+        __d.textContent = "Registre cloud v17 — " + (__ok ? "serveur cloud pret" : "serveur NON charge (mode hors-ligne)");
         __d.style.color = __ok ? "#2e7d32" : "#b45309";
       }
     }catch(__e){}
@@ -3521,6 +3558,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   #adminOverlay .admtab .nowrap{white-space:nowrap}
   #adminOverlay .admtab input[type=number]{width:62px;padding:3px}
   #adminOverlay h4{color:#5A2E12;margin:6px 0}
+  #adminOverlay .admadd{background:#f7efe6;border:1px solid #e4d8c8;border-radius:8px;padding:10px;margin-bottom:14px}
+  #adminOverlay .admaddrow{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0}
+  #adminOverlay .admaddrow input{padding:5px;border:1px solid #ccc;border-radius:5px;font-size:13px}
+  #adminOverlay .admaddrow input[type=number]{width:84px}
+  #adminOverlay .admdel{background:#b91c1c;border-color:#b91c1c;color:#fff}
 </style>
 </body>
 </html>
