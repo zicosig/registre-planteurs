@@ -1410,6 +1410,7 @@ window.__APP__=function(){
   var _syncTimer=null;
   function syncAuto(){
     if(!window.supabaseClient || !window.synchroniserPlanteurs) return;
+    if(!(window.SEC && SEC.user && SEC.user())) return;
     clearTimeout(_syncTimer);
     _syncTimer=setTimeout(function(){
       window.synchroniserPlanteurs().then(function(res){
@@ -1474,7 +1475,7 @@ window.__APP__=function(){
           '<td><button class="btn sm" data-save="'+esc(a.id)+'">Enregistrer</button></td>'+
           '</tr>';
       });
-      h+='</tbody></table><p class="hint" style="margin-top:10px">Pour ajouter un agent : demande-lui de créer son compte via « Créer un compte » dans l\'application (ou crée-le dans Supabase → Authentication → Users). Il apparaîtra ici, où tu pourras lui attribuer une plage de codes.</p>';
+      h+='</tbody></table><p class="hint" style="margin-top:10px">Pour ajouter un agent : crée son compte dans Supabase → Authentication → Users (« Add user », coche « Auto Confirm User »), puis communique-lui son e-mail et son mot de passe. Il apparaîtra ici pour lui attribuer une plage de codes ; il pourra changer son mot de passe après connexion.</p>';
       box.innerHTML=h;
       Array.prototype.forEach.call(box.querySelectorAll("[data-save]"),function(btn){
         btn.onclick=function(){ enregistrerAgent(btn.getAttribute("data-save"), btn.parentNode.parentNode); };
@@ -2268,6 +2269,8 @@ window.__APP__=function(){
   /* rafraîchissement du registre après une synchronisation */
   window.addEventListener("rp:donnees",function(){ records=load(KEY_DATA,[])||[]; syncCounters(); majTout(); });
   window.addEventListener("rp:role", majBoutonAdmin); majBoutonAdmin();
+  document.addEventListener("visibilitychange", function(){ if(document.visibilityState==="visible") syncAuto(); });
+  window.addEventListener("focus", function(){ syncAuto(); });
   (function(){ var b=$("btnAdmin"); if(b) b.onclick=ouvrirAdmin; })();
 
   $("btnOrg").onclick=function(e){ e.preventDefault(); demanderOrg(); };
@@ -2761,10 +2764,8 @@ window.__APP__=function(){
       '<label>Adresse e-mail</label><input id="secLog" type="email" inputmode="email" autocomplete="username">'+
       '<label>Mot de passe</label><input id="secMdp" type="password" autocomplete="current-password">'+
       '<button class="go" id="secGo">Se connecter</button>'+
-      '<button type="button" class="lien" id="secForgot">Mot de passe oublié ?</button>'+
-      '<button type="button" class="lien" id="secSignup">Pas encore de compte ? Créer un compte</button>';
+      '<button type="button" class="lien" id="secForgot">Mot de passe oublié ?</button>';
     document.getElementById("secForgot").onclick=function(){ ecranReset(); };
-    document.getElementById("secSignup").onclick=function(){ ecranInscription(); };
     var go=document.getElementById("secGo");
     go.onclick=function(){
       erreur(""); go.disabled=true;
@@ -2802,22 +2803,45 @@ window.__APP__=function(){
     reset();
   }
 
+  function ecranChangerMdp(){
+    ov.style.display="flex"; erreur("");
+    document.getElementById("secCorps").innerHTML=
+      '<h2>Changer le mot de passe</h2>'+
+      '<p class="hint">Choisissez un nouveau mot de passe pour votre compte.</p>'+
+      '<label>Nouveau mot de passe (8 caractères min.)</label><input id="cpM1" type="password" autocomplete="new-password">'+
+      '<label>Confirmation</label><input id="cpM2" type="password" autocomplete="new-password">'+
+      '<button class="go" id="cpGo">Enregistrer</button>'+
+      '<button type="button" id="cpCancel" class="lien">Annuler</button>';
+    document.getElementById("cpCancel").onclick=function(){ ov.style.display="none"; };
+    var go=document.getElementById("cpGo");
+    go.onclick=function(){
+      var m1=val("cpM1"), m2=val("cpM2");
+      if(m1.length<8) return erreur("Le mot de passe doit faire au moins 8 caractères.");
+      if(m1!==m2) return erreur("Les deux mots de passe ne correspondent pas.");
+      if(!sbClient()) return erreur("Une connexion internet est nécessaire pour changer le mot de passe.");
+      erreur(""); go.disabled=true;
+      sbClient().auth.updateUser({ password:m1 }).then(function(r){
+        if(r && r.error) throw new Error(traduireAuth(r.error.message));
+        document.getElementById("secCorps").innerHTML=
+          '<h2>Mot de passe changé</h2>'+
+          '<p class="hint">Votre nouveau mot de passe est actif. Utilisez-le lors de vos prochaines connexions.</p>'+
+          '<button type="button" class="go" id="cpOk">Continuer</button>';
+        document.getElementById("cpOk").onclick=function(){ ov.style.display="none"; };
+      }).catch(function(e){ erreur(traduireAuth(e.message)); go.disabled=false; });
+    };
+    document.getElementById("cpM1").focus();
+  }
   function badge(){
     var tb=document.querySelector("header .toolbar");
     if(!tb || document.getElementById("secBadge")) return;
     var d=document.createElement("div"); d.style.display="flex"; d.style.gap="8px"; d.style.alignItems="center";
     d.innerHTML='<span class="secPill" id="secBadge"></span>'+
-      '<button class="btn" id="secCode" type="button">Code de secours</button>'+
-      (SEC.estAdmin()?'<button class="btn" id="secComptes" type="button">Comptes</button>':'')+
+      '<button class="btn" id="secChgMdp" type="button">Mot de passe</button>'+
       '<button class="btn" id="secOut" type="button">Verrouiller</button>';
     tb.appendChild(d);
     document.getElementById("secBadge").textContent=moi.nom+" · "+(moi.role==="admin"?"admin":"agent");
     document.getElementById("secOut").onclick=function(){ persister().then(function(){ location.reload(); }); };
-    var bcode=document.getElementById("secCode"); if(bcode) bcode.onclick=function(){
-      if(!dekBrutSession){ alert("Reconnectez-vous pour générer un code."); return; }
-      definirCode(moi.login, dekBrutSession).then(function(code){ ecranCode(code, "compte", function(){}); });
-    };
-    var bc=document.getElementById("secComptes"); if(bc) bc.onclick=panneauComptes;
+    var bchg=document.getElementById("secChgMdp"); if(bchg) bchg.onclick=ecranChangerMdp;
   }
 
   /* ---------- gestion des comptes (admin) ---------- */
@@ -2911,7 +2935,7 @@ window.__APP__=function(){
       var __d=document.getElementById("secDiag");
       if(__d){
         var __ok=!!sbClient();
-        __d.textContent = "Registre cloud v15 — " + (__ok ? "serveur cloud pret" : "serveur NON charge (mode hors-ligne)");
+        __d.textContent = "Registre cloud v16 — " + (__ok ? "serveur cloud pret" : "serveur NON charge (mode hors-ligne)");
         __d.style.color = __ok ? "#2e7d32" : "#b45309";
       }
     }catch(__e){}
