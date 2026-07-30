@@ -1428,7 +1428,14 @@ window.__APP__=function(){
   }, 3600000);
   /* ================= MODULE ADMINISTRATEUR ================= */
   function estAdminApp(){ return (((window.SEC&&SEC.user&&SEC.user())||{}).role)==='admin'; }
-  function majBoutonAdmin(){ var b=$("btnAdmin"); if(b) b.style.display=estAdminApp()?"":"none"; }
+  function majBoutonAdmin(){
+    var admin=estAdminApp();
+    var b=$("btnAdmin"); if(b) b.style.display=admin?"":"none";
+    /* Les telechargements/exports de donnees sont reserves a l'administrateur */
+    var ex=$("btnExport"); if(ex && ex.parentNode) ex.parentNode.style.display=admin?"":"none";
+    var bk=$("btnBackup"); if(bk) bk.style.display=admin?"":"none";
+    var im=$("btnImport"); if(im) im.style.display=admin?"":"none";
+  }
   function carteStat(t,v){ return '<div class="admcard"><div class="admcard-t">'+t+'</div><div class="admcard-v">'+v+'</div></div>'; }
   function rendreDashboard(){
     var recs=records||[], total=recs.length, parAgent={}, parVillage={}, superf=0, geoloc=0;
@@ -2904,7 +2911,7 @@ window.__APP__=function(){
       var __d=document.getElementById("secDiag");
       if(__d){
         var __ok=!!sbClient();
-        __d.textContent = "Registre cloud v14 — " + (__ok ? "serveur cloud pret" : "serveur NON charge (mode hors-ligne)");
+        __d.textContent = "Registre cloud v15 — " + (__ok ? "serveur cloud pret" : "serveur NON charge (mode hors-ligne)");
         __d.style.color = __ok ? "#2e7d32" : "#b45309";
       }
     }catch(__e){}
