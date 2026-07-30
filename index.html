@@ -716,7 +716,6 @@
     </div>
   </section>
 
-  <div class="foot">Fonctionne hors ligne · Données stockées uniquement sur cet appareil · À utiliser en complément d'Odoo</div>
 </div>
 
 <!-- Modale fiche -->
@@ -1457,21 +1456,23 @@ window.__APP__=function(){
   }
   function chargerAgents(){
     var box=$("adminAgents");
-    if(!window.supabaseClient){ box.innerHTML="<p class='hint'>Serveur non disponible (hors ligne).</p>"; return; }
-    box.innerHTML="<p class='hint'>Chargement…</p>";
+    var form='<div class="admadd"><b>Créer un compte agent</b><div class="admaddrow">'+
+      '<input id="agEmail" type="email" placeholder="e-mail de l\'agent">'+
+      '<input id="agNom" type="text" placeholder="nom (facultatif)">'+
+      '<input id="agPass" type="text" placeholder="mot de passe (8+)">'+
+      '<input id="agMin" type="number" placeholder="code min">'+
+      '<input id="agMax" type="number" placeholder="code max">'+
+      '<button class="btn sm" id="agCreate">Créer l\'agent</button>'+
+      '</div><p class="hint" style="margin:4px 0 0">Tu communiques l\'e-mail et le mot de passe à l\'agent ; il pourra le changer après connexion.</p></div>';
+    box.innerHTML=form+'<div id="agentsList"><p class="hint">Chargement de la liste…</p></div>';
+    var cbtn=$("agCreate"); if(cbtn) cbtn.onclick=ajouterAgent;
+    var list=$("agentsList");
+    if(!window.supabaseClient){ list.innerHTML="<p class='hint'>Serveur non disponible (hors ligne).</p>"; return; }
     window.supabaseClient.from("profils").select("id,email,nom,role,actif,plage_min,plage_max").then(function(res){
-      if(res.error){ box.innerHTML="<p class='hint'>Erreur : "+esc(res.error.message)+"</p>"; return; }
+      if(res.error){ list.innerHTML="<p class='hint'>Impossible de lister les agents : "+esc(res.error.message)+".<br>Vérifie que le script SQL admin (schema_admin_ccg.sql) a bien été exécuté dans Supabase.</p>"; return; }
       var ag=res.data||[], cnt={};
       (records||[]).forEach(function(r){ var a=r.agent||""; cnt[a]=(cnt[a]||0)+1; });
-      var h='<div class="admadd"><b>Ajouter un agent</b><div class="admaddrow">'+
-        '<input id="agEmail" type="email" placeholder="e-mail de l\'agent">'+
-        '<input id="agNom" type="text" placeholder="nom (facultatif)">'+
-        '<input id="agPass" type="text" placeholder="mot de passe (8+)">'+
-        '<input id="agMin" type="number" placeholder="code min">'+
-        '<input id="agMax" type="number" placeholder="code max">'+
-        '<button class="btn sm" id="agCreate">Créer l\'agent</button>'+
-        '</div><p class="hint" style="margin:4px 0 0">Communique ensuite l\'e-mail et le mot de passe à l\'agent ; il pourra le changer après connexion.</p></div>';
-      h+='<table class="admtab"><thead><tr><th>Agent</th><th>Rôle</th><th class="r">Fiches</th><th>Plage de codes</th><th>Actif</th><th></th></tr></thead><tbody>';
+      var h='<table class="admtab"><thead><tr><th>Agent</th><th>Rôle</th><th class="r">Fiches</th><th>Plage de codes</th><th>Actif</th><th></th></tr></thead><tbody>';
       ag.forEach(function(a){
         var mail=a.email||a.nom||a.id;
         h+='<tr data-id="'+esc(a.id)+'">'+
@@ -1483,16 +1484,15 @@ window.__APP__=function(){
           '<td class="nowrap"><button class="btn sm" data-save="'+esc(a.id)+'">Enregistrer</button> <button class="btn sm admdel" data-del="'+esc(a.id)+'" data-mail="'+esc(mail)+'">Supprimer</button></td>'+
           '</tr>';
       });
-      h+='</tbody></table>';
-      box.innerHTML=h;
-      var cbtn=$("agCreate"); if(cbtn) cbtn.onclick=ajouterAgent;
-      Array.prototype.forEach.call(box.querySelectorAll("[data-save]"),function(btn){
+      h+='</tbody></table><p class="hint" style="margin-top:8px"><b>Rôle</b> : agent ou admin. <b>« Actif » décoché puis Enregistrer</b> : l\'agent ne pourra plus se connecter (désactivation). <b>Enregistrer</b> applique les changements ; <b>Supprimer</b> efface le compte.</p>';
+      list.innerHTML=h;
+      Array.prototype.forEach.call(list.querySelectorAll("[data-save]"),function(btn){
         btn.onclick=function(){ enregistrerAgent(btn.getAttribute("data-save"), btn.parentNode.parentNode); };
       });
-      Array.prototype.forEach.call(box.querySelectorAll("[data-del]"),function(btn){
+      Array.prototype.forEach.call(list.querySelectorAll("[data-del]"),function(btn){
         btn.onclick=function(){ supprimerAgent(btn.getAttribute("data-del"), btn.getAttribute("data-mail")); };
       });
-    }).catch(function(e){ box.innerHTML="<p class='hint'>Erreur : "+esc(e.message||e)+"</p>"; });
+    }).catch(function(e){ list.innerHTML="<p class='hint'>Erreur : "+esc(e.message||e)+"</p>"; });
   }
   function invoqueAdmin(payload){
     return window.supabaseClient.functions.invoke("admin-agents",{ body:payload }).then(function(res){
@@ -2972,7 +2972,7 @@ window.__APP__=function(){
       var __d=document.getElementById("secDiag");
       if(__d){
         var __ok=!!sbClient();
-        __d.textContent = "Registre cloud v17 — " + (__ok ? "serveur cloud pret" : "serveur NON charge (mode hors-ligne)");
+        __d.textContent = "Registre cloud v18 — " + (__ok ? "serveur cloud pret" : "serveur NON charge (mode hors-ligne)");
         __d.style.color = __ok ? "#2e7d32" : "#b45309";
       }
     }catch(__e){}
