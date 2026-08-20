@@ -342,19 +342,8 @@
                 <datalist id="coopList"></datalist>
               </div>
 
-              <div class="row2">
-                <div class="field">
-                  <label>Contact d'urgence — lien de parenté</label>
-                  <input id="fUrgLien" type="text" placeholder="Frère, épouse…" autocomplete="off">
-                </div>
-                <div class="field">
-                  <label>Contact d'urgence — téléphone</label>
-                  <input id="fUrgTel" type="tel" inputmode="numeric" placeholder="05 00 00 00 00" autocomplete="off">
-                </div>
-              </div>
-
               <div class="field">
-                <label>Photo du bénéficiaire</label>
+                <label>Photo de la CNI</label>
                 <div class="photobox">
                   <div class="photo" id="photoPv">Aucune</div>
                   <div class="btnrow">
@@ -777,6 +766,7 @@ window.__APP__=function(){
   var records = load(KEY_DATA, []) || [];
   var nextPlanteur = load(KEY_NP, 1);
   var nextOrdre    = load(KEY_NO, 1);
+  recalerCompteurs();
 
   /* =========================================================
      2. FICHIERS (IndexedDB) — photos et documents
@@ -1049,7 +1039,7 @@ window.__APP__=function(){
   var modePaie="mm";
   var CATS=["Pièce d'identité","Document foncier","Photo de la plantation","Contrat / engagement","RIB / attestation de compte","Autre"];
 
-  var FIELDS=["fNom","fPrenom","fRaison","fRccm","fTel","fTel2","fPieceType","fPieceNum","fPieceExp","fCoop","fUrgLien","fUrgTel",
+  var FIELDS=["fNom","fPrenom","fRaison","fRccm","fTel","fTel2","fPieceType","fPieceNum","fPieceExp","fCoop",
     "fVille","fAnnee","fSuperficie","fAnneeCrea","fPieds","fFoncier","fFoncierNum","fNote","fLat","fLng",
     "fMMOp","fMMNum","fMMTit","fBqNom","fBqSwift","fBqIban","fBqTit"];
 
@@ -1062,7 +1052,6 @@ window.__APP__=function(){
       tel:nettoyageTel(val("fTel")), tel2:nettoyageTel(val("fTel2")),
       piece:{type:val("fPieceType"), numero:val("fPieceNum"), expire:val("fPieceExp")},
       cooperative:val("fCoop"),
-      urgence:{lien:val("fUrgLien"), tel:nettoyageTel(val("fUrgTel"))},
       ville:val("fVille"), annee:Number(val("fAnnee"))||null,
       plantation:{superficie:val("fSuperficie")?Number(val("fSuperficie")):null, anneeCreation:Number(val("fAnneeCrea"))||null,
         pieds:Number(val("fPieds"))||null, foncier:val("fFoncier"), foncierNum:val("fFoncierNum")},
@@ -1081,7 +1070,6 @@ window.__APP__=function(){
     $("fTel").value=formatTel(r.tel||""); $("fTel2").value=formatTel(r.tel2||"");
     var p=r.piece||{}; $("fPieceType").value=p.type||""; $("fPieceNum").value=p.numero||""; $("fPieceExp").value=p.expire||"";
     $("fCoop").value=r.cooperative||"";
-    var u=r.urgence||{}; $("fUrgLien").value=u.lien||""; $("fUrgTel").value=formatTel(u.tel||"");
     $("fVille").value=r.ville||""; $("fAnnee").value=r.annee||"";
     var pl=r.plantation||{}; $("fSuperficie").value=pl.superficie!=null?pl.superficie:""; $("fAnneeCrea").value=pl.anneeCreation||"";
     $("fPieds").value=pl.pieds||""; $("fFoncier").value=pl.foncier||""; $("fFoncierNum").value=pl.foncierNum||"";
@@ -1273,6 +1261,20 @@ window.__APP__=function(){
     records.forEach(function(r){ s.p[r.codePlanteur]=r.id; s.pl[r.codePlantation]=r.id; });
     return s;
   }
+  /* Aligne automatiquement les compteurs (code planteur + n° d'ordre) sur le numero le plus
+     eleve deja attribue dans le registre, pour que la numerotation suive toujours la chronologie
+     reelle des fiches (utile apres une synchronisation ou une restauration de sauvegarde). */
+  function recalerCompteurs(){
+    var maxP=0, maxO=0;
+    records.forEach(function(r){
+      var n=parseInt(r.codePlanteur,10);
+      if(!isNaN(n) && n>maxP) maxP=n;
+      var m=/-([0-9]+)$/.exec(r.codePlantation||"");
+      if(m){ var o=parseInt(m[1],10); if(!isNaN(o) && o>maxO) maxO=o; }
+    });
+    if(maxP+1>nextPlanteur) nextPlanteur=maxP+1;
+    if(maxO+1>nextOrdre) nextOrdre=maxO+1;
+  }
   function prochainCodePlanteur(){
     var pris=codesPris().p, u=SEC.user(), pl=u&&u.plage;
     if(pl && nextPlanteur<pl.min) nextPlanteur=pl.min;
@@ -1314,7 +1316,7 @@ window.__APP__=function(){
 
   function critères(f){
     var docCats={}; (f.docs||[]).forEach(function(d){ docCats[d.cat]=true; });
-    var pa=f.paiement||{}, mm=pa.mm||{}, bq=pa.banque||{}, pc=f.piece||{}, ur=f.urgence||{}, pl=f.plantation||{};
+    var pa=f.paiement||{}, mm=pa.mm||{}, bq=pa.banque||{}, pc=f.piece||{}, pl=f.plantation||{};
     var paieOk = pa.mode==="especes" ? true :
       pa.mode==="banque" ? !!(bq.nom&&bq.iban&&ibanValide(bq.iban)) :
       !!(mm.operateur&&(mm.numero||"").length===10);
@@ -1323,9 +1325,8 @@ window.__APP__=function(){
       {k:"Identité du bénéficiaire", ok: estCoop ? !!(f.raison&&f.rccm) : !!(f.nom&&f.prenom)},
       {k:"Téléphone valide", ok:(f.tel||"").length===10},
       {k:"Pièce d'identité renseignée", ok:!!(pc.type&&pc.numero)},
-      {k:"Photo du bénéficiaire", ok:!!f.photo},
+      {k:"Photo de la CNI", ok:!!f.photo},
       {k:"Coordonnées de paiement", ok:paieOk},
-      {k:"Contact d'urgence", ok:!!(ur.lien&&(ur.tel||"").length===10)},
       {k:"Pièce d'identité téléversée", ok:!!docCats["Pièce d'identité"]}
     ];
     if(!estCoop){
@@ -1960,6 +1961,7 @@ window.__APP__=function(){
         records=d.records;
         nextPlanteur=d.nextPlanteur||records.length+1;
         nextOrdre=d.nextOrdre||records.length+1;
+        recalerCompteurs();
         var fich=d.fichiers||{};
         var ks=Object.keys(fich);
         Promise.all(ks.map(function(k){
@@ -2286,7 +2288,7 @@ window.__APP__=function(){
     $(id).addEventListener("input",function(){ refreshPreview(); saveDraft(); });
     $(id).addEventListener("change",function(){ refreshPreview(); saveDraft(); });
   });
-  ["fTel","fTel2","fUrgTel","fMMNum"].forEach(function(id){
+  ["fTel","fTel2","fMMNum"].forEach(function(id){
     $(id).addEventListener("input",function(){ var c=this.selectionStart===this.value.length; this.value=formatTel(nettoyageTel(this.value)); if(c) this.selectionStart=this.selectionEnd=this.value.length; });
   });
   $("fBqIban").addEventListener("input",function(){
@@ -2394,7 +2396,7 @@ window.__APP__=function(){
   function majTout(){ render(); majListes(); majSelectPaie(); renderPaiements(); renderMapAll(); }
 
   /* rafraîchissement du registre après une synchronisation */
-  window.addEventListener("rp:donnees",function(){ records=load(KEY_DATA,[])||[]; syncCounters(); majTout(); });
+  window.addEventListener("rp:donnees",function(){ records=load(KEY_DATA,[])||[]; recalerCompteurs(); syncCounters(); majTout(); });
   window.addEventListener("rp:role", majBoutonAdmin); majBoutonAdmin();
   document.addEventListener("visibilitychange", function(){ if(document.visibilityState==="visible") syncAuto(); });
   window.addEventListener("focus", function(){ syncAuto(); });
