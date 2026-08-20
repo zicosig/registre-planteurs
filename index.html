@@ -342,17 +342,13 @@
                 <datalist id="coopList"></datalist>
               </div>
 
-              <div class="row3">
+              <div class="row2">
                 <div class="field">
-                  <label>Contact d'urgence — nom</label>
-                  <input id="fUrgNom" type="text" placeholder="Nom et prénoms" autocomplete="off">
-                </div>
-                <div class="field">
-                  <label>Lien de parenté</label>
+                  <label>Contact d'urgence — lien de parenté</label>
                   <input id="fUrgLien" type="text" placeholder="Frère, épouse…" autocomplete="off">
                 </div>
                 <div class="field">
-                  <label>Téléphone</label>
+                  <label>Contact d'urgence — téléphone</label>
                   <input id="fUrgTel" type="tel" inputmode="numeric" placeholder="05 00 00 00 00" autocomplete="off">
                 </div>
               </div>
@@ -371,7 +367,7 @@
             </fieldset>
 
             <!-- 2. Plantation -->
-            <fieldset class="sect">
+            <fieldset class="sect" id="sectPlantation">
               <div class="sect-t"><span class="n">2</span> Plantation</div>
               <div class="row2">
                 <div class="field">
@@ -551,7 +547,7 @@
               </div>
               <div class="btnrow">
                 <button class="btn sm" id="btnCounters">Compteurs</button>
-                <button class="btn sm ghost" id="btnPrintPreview">Télécharger le PDF</button>
+                <button class="btn sm ghost" id="btnPrintPreview">Télécharger la carte</button>
               </div>
               <div id="countersPanel" style="display:none">
                 <div class="row2">
@@ -995,7 +991,7 @@ window.__APP__=function(){
       out.push('</svg>');
       return out.join("");
     }
-    return { svg:svg };
+    return { svg:svg, matrix:matrix };
   })();
 
   /* =========================================================
@@ -1008,24 +1004,39 @@ window.__APP__=function(){
       "213131,311123,311321,331121,312113,312311,332111,314111,221411,431111,111224,111422,121124,121421,141122,141221,112214,112412,"+
       "122114,122411,142112,142211,241211,221114,413111,241112,134111,111242,121142,121241,114212,124112,124211,411212,421112,421211,"+
       "212141,214121,412121,111143,111341,131141,114113,114311,411113,411311,113141,114131,311141,411131,211412,211214,211232,2331112").split(",");
-    function svg(txt,h,px){
+    function seq(txt){
       var s=String(txt||"").replace(/[^\x20-\x7E]/g,""), vals=[104], sum=104;
       for(var i=0;i<s.length;i++){ var v=s.charCodeAt(i)-32; vals.push(v); sum+=v*(i+1); }
       vals.push(sum%103); vals.push(106);
-      var seq=vals.map(function(v){return P[v];}).join("");
-      var total=0; for(var k=0;k<seq.length;k++) total+=Number(seq[k]);
+      return vals.map(function(v){return P[v];}).join("");
+    }
+    function svg(txt,h,px){
+      var sq=seq(txt);
+      var total=0; for(var k=0;k<sq.length;k++) total+=Number(sq[k]);
       var W=(px||260)/total, H=h||46, x=0, out=[], bar=true;
       out.push('<svg xmlns="http://www.w3.org/2000/svg" width="'+(px||260)+'" height="'+H+'" viewBox="0 0 '+total+' '+H+'" shape-rendering="crispEdges">');
       out.push('<rect width="'+total+'" height="'+H+'" fill="#fff"/>');
-      for(var j=0;j<seq.length;j++){
-        var w=Number(seq[j]);
+      for(var j=0;j<sq.length;j++){
+        var w=Number(sq[j]);
         if(bar) out.push('<rect x="'+x+'" y="0" width="'+w+'" height="'+H+'" fill="#1a1a15"/>');
         x+=w; bar=!bar;
       }
       out.push('</svg>');
       return out.join("");
     }
-    return { svg:svg };
+    /* segments(txt,W) -> [{x,w},...] en unites W (largeur totale voulue), uniquement les barres noires */
+    function segments(txt,W){
+      var sq=seq(txt);
+      var total=0; for(var k=0;k<sq.length;k++) total+=Number(sq[k]);
+      var unit=W/total, x=0, out=[], bar=true;
+      for(var j=0;j<sq.length;j++){
+        var w=Number(sq[j])*unit;
+        if(bar) out.push({x:x,w:w});
+        x+=w; bar=!bar;
+      }
+      return out;
+    }
+    return { svg:svg, segments:segments };
   })();
 
   /* =========================================================
@@ -1038,7 +1049,7 @@ window.__APP__=function(){
   var modePaie="mm";
   var CATS=["Pièce d'identité","Document foncier","Photo de la plantation","Contrat / engagement","RIB / attestation de compte","Autre"];
 
-  var FIELDS=["fNom","fPrenom","fRaison","fRccm","fTel","fTel2","fPieceType","fPieceNum","fPieceExp","fCoop","fUrgNom","fUrgLien","fUrgTel",
+  var FIELDS=["fNom","fPrenom","fRaison","fRccm","fTel","fTel2","fPieceType","fPieceNum","fPieceExp","fCoop","fUrgLien","fUrgTel",
     "fVille","fAnnee","fSuperficie","fAnneeCrea","fPieds","fFoncier","fFoncierNum","fNote","fLat","fLng",
     "fMMOp","fMMNum","fMMTit","fBqNom","fBqSwift","fBqIban","fBqTit"];
 
@@ -1051,7 +1062,7 @@ window.__APP__=function(){
       tel:nettoyageTel(val("fTel")), tel2:nettoyageTel(val("fTel2")),
       piece:{type:val("fPieceType"), numero:val("fPieceNum"), expire:val("fPieceExp")},
       cooperative:val("fCoop"),
-      urgence:{nom:val("fUrgNom"), lien:val("fUrgLien"), tel:nettoyageTel(val("fUrgTel"))},
+      urgence:{lien:val("fUrgLien"), tel:nettoyageTel(val("fUrgTel"))},
       ville:val("fVille"), annee:Number(val("fAnnee"))||null,
       plantation:{superficie:val("fSuperficie")?Number(val("fSuperficie")):null, anneeCreation:Number(val("fAnneeCrea"))||null,
         pieds:Number(val("fPieds"))||null, foncier:val("fFoncier"), foncierNum:val("fFoncierNum")},
@@ -1070,7 +1081,7 @@ window.__APP__=function(){
     $("fTel").value=formatTel(r.tel||""); $("fTel2").value=formatTel(r.tel2||"");
     var p=r.piece||{}; $("fPieceType").value=p.type||""; $("fPieceNum").value=p.numero||""; $("fPieceExp").value=p.expire||"";
     $("fCoop").value=r.cooperative||"";
-    var u=r.urgence||{}; $("fUrgNom").value=u.nom||""; $("fUrgLien").value=u.lien||""; $("fUrgTel").value=formatTel(u.tel||"");
+    var u=r.urgence||{}; $("fUrgLien").value=u.lien||""; $("fUrgTel").value=formatTel(u.tel||"");
     $("fVille").value=r.ville||""; $("fAnnee").value=r.annee||"";
     var pl=r.plantation||{}; $("fSuperficie").value=pl.superficie!=null?pl.superficie:""; $("fAnneeCrea").value=pl.anneeCreation||"";
     $("fPieds").value=pl.pieds||""; $("fFoncier").value=pl.foncier||""; $("fFoncierNum").value=pl.foncierNum||"";
@@ -1100,6 +1111,7 @@ window.__APP__=function(){
     Array.prototype.forEach.call($("segType").children,function(b){ b.classList.toggle("on", b.dataset.v===t); });
     $("blocPlanteur").style.display = t==="planteur" ? "" : "none";
     $("blocCoop").style.display     = t==="cooperative" ? "" : "none";
+    $("sectPlantation").style.display = t==="cooperative" ? "none" : "";
   }
   function setMode(m){
     modePaie=m;
@@ -1306,20 +1318,26 @@ window.__APP__=function(){
     var paieOk = pa.mode==="especes" ? true :
       pa.mode==="banque" ? !!(bq.nom&&bq.iban&&ibanValide(bq.iban)) :
       !!(mm.operateur&&(mm.numero||"").length===10);
-    return [
-      {k:"Identité du bénéficiaire", ok: f.type==="cooperative" ? !!(f.raison&&f.rccm) : !!(f.nom&&f.prenom)},
+    var estCoop = f.type==="cooperative";
+    var crit=[
+      {k:"Identité du bénéficiaire", ok: estCoop ? !!(f.raison&&f.rccm) : !!(f.nom&&f.prenom)},
       {k:"Téléphone valide", ok:(f.tel||"").length===10},
       {k:"Pièce d'identité renseignée", ok:!!(pc.type&&pc.numero)},
       {k:"Photo du bénéficiaire", ok:!!f.photo},
-      {k:"Village et année de culture", ok:!!(f.ville&&f.annee)},
-      {k:"Superficie de la plantation", ok:pl.superficie>0},
-      {k:"Statut foncier", ok:!!pl.foncier},
-      {k:"Coordonnées GPS", ok:!!f.geo},
       {k:"Coordonnées de paiement", ok:paieOk},
-      {k:"Contact d'urgence", ok:!!(ur.nom&&(ur.tel||"").length===10)},
-      {k:"Pièce d'identité téléversée", ok:!!docCats["Pièce d'identité"]},
-      {k:"Document foncier téléversé", ok:!!docCats["Document foncier"]}
+      {k:"Contact d'urgence", ok:!!(ur.lien&&(ur.tel||"").length===10)},
+      {k:"Pièce d'identité téléversée", ok:!!docCats["Pièce d'identité"]}
     ];
+    if(!estCoop){
+      crit.push(
+        {k:"Village et année de culture", ok:!!(f.ville&&f.annee)},
+        {k:"Superficie de la plantation", ok:pl.superficie>0},
+        {k:"Statut foncier", ok:!!pl.foncier},
+        {k:"Coordonnées GPS", ok:!!f.geo},
+        {k:"Document foncier téléversé", ok:!!docCats["Document foncier"]}
+      );
+    }
+    return crit;
   }
   function majComplet(f){
     var c=critères(f), ok=c.filter(function(x){return x.ok;}).length, pct=Math.round(ok/c.length*100);
@@ -1349,9 +1367,13 @@ window.__APP__=function(){
       ok &= marquerErreur("fNom",!f.nom); ok &= marquerErreur("fPrenom",!f.prenom);
       $("fRaison").classList.remove("err");
     }
-    ok &= marquerErreur("fVille",!f.ville||!initiales(f.ville));
-    ok &= marquerErreur("fAnnee",!f.annee||f.annee<1950||f.annee>2100);
-    ok &= marquerErreur("fSuperficie",!(f.plantation.superficie>0));
+    if(f.type==="cooperative"){
+      $("fVille").classList.remove("err"); $("fAnnee").classList.remove("err"); $("fSuperficie").classList.remove("err");
+    } else {
+      ok &= marquerErreur("fVille",!f.ville||!initiales(f.ville));
+      ok &= marquerErreur("fAnnee",!f.annee||f.annee<1950||f.annee>2100);
+      ok &= marquerErreur("fSuperficie",!(f.plantation.superficie>0));
+    }
     ok &= marquerErreur("fTel",f.tel.length!==10);
     if(!ok){ toast("Champs obligatoires manquants ou invalides",true); return; }
     if(f.tel2&&f.tel2.length!==10){ $("fTel2").classList.add("err"); toast("Le téléphone secondaire doit comporter 10 chiffres",true); return; }
@@ -2085,6 +2107,81 @@ window.__APP__=function(){
       catch(e){ toast("PDF impossible : "+(e.message||e), true); }
     });
   }
+  /* ====== Carte « Codes attribués » — reprend le rendu de l'ecran (encadres codes + QR + code-barres),
+     format carte a imprimer et remettre au planteur ====== */
+  function dessinerCarte(doc, r){
+    var W=95, H=148, M=8, cw=W-2*M, y=M;
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(130,130,130);
+    doc.text(String(orgNom()||""), M, y);
+    y+=5.5;
+    doc.setFont("helvetica","bold"); doc.setFontSize(11.5); doc.setTextColor(90,46,18);
+    doc.text("CODES ATTRIBUES", M, y);
+    var pillTxt="Unicite verifiee";
+    doc.setFontSize(6.6);
+    var pw=doc.getTextWidth(pillTxt)+4;
+    doc.setDrawColor(198,144,60); doc.setFillColor(247,239,230); doc.setLineWidth(0.25);
+    doc.roundedRect(W-M-pw, y-3.6, pw, 5, 1.4,1.4,"FD");
+    doc.setTextColor(120,90,50); doc.setFont("helvetica","bold");
+    doc.text(pillTxt, W-M-pw+2, y-0.2);
+    y+=3;
+    doc.setDrawColor(90,46,18); doc.setLineWidth(0.5); doc.line(M,y,W-M,y);
+    y+=6;
+    doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor(30,30,30);
+    doc.text(String(nomComplet(r)||"—"), M, y);
+    y+=4.5;
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(110,110,110);
+    doc.text((r.type==="cooperative"?"Cooperative":"Planteur")+(r.ville?" - "+r.ville:""), M, y);
+    y+=6;
+    function boiteCode(label, valeur, dim){
+      doc.setDrawColor(198,144,60); doc.setFillColor(247,239,230); doc.setLineWidth(0.3);
+      doc.roundedRect(M, y, cw, 15, 1.6,1.6,"FD");
+      doc.setTextColor(120,90,50); doc.setFont("helvetica","bold"); doc.setFontSize(7);
+      doc.text(label, M+3.5, y+5);
+      doc.setFont("helvetica","bold"); doc.setFontSize(14);
+      if(dim) doc.setTextColor(165,160,150); else doc.setTextColor(90,46,18);
+      doc.text(String(valeur||"—"), M+3.5, y+11.5);
+      y+=19;
+    }
+    boiteCode("CODE PLANTEUR", r.codePlanteur, false);
+    boiteCode("CODE PLANTATION", r.codePlantation, !r.codePlantation);
+    y+=1;
+    var qrSize=52;
+    var m=QR.matrix(contenuQr(r.codePlanteur, r.codePlantation, r));
+    if(m){
+      var n=m.length, quiet=1, tot=n+2*quiet, cell=qrSize/tot, qx=M+(cw-qrSize)/2, qy=y;
+      doc.setFillColor(90,46,18);
+      for(var rr=0; rr<n; rr++){
+        var c=0;
+        while(c<n){
+          if(m[rr][c]){ var st=c; while(c<n&&m[rr][c]) c++; doc.rect(qx+(st+quiet)*cell, qy+(rr+quiet)*cell, (c-st)*cell, cell, "F"); }
+          else c++;
+        }
+      }
+      y+=qrSize+3;
+    } else { y+=3; }
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(110,110,110);
+    doc.text("QR - "+r.codePlanteur+(r.codePlantation?" / "+r.codePlantation:""), W/2, y, {align:"center"});
+    y+=6;
+    var barW=cw-6, barH=13, bx=M+3, by=y;
+    var segs=BAR.segments(r.codePlanteur, barW);
+    doc.setFillColor(26,26,21);
+    segs.forEach(function(s){ doc.rect(bx+s.x, by, s.w, barH, "F"); });
+    y+=barH+4;
+    doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(110,110,110);
+    doc.text("Code-barres (Code 128)", W/2, y, {align:"center"});
+    doc.setDrawColor(232,230,222); doc.setLineWidth(0.2); doc.line(M, H-M-6, W-M, H-M-6);
+    doc.setFont("helvetica","normal"); doc.setFontSize(6.3); doc.setTextColor(150,150,150);
+    doc.text("Carte editee le "+new Date().toLocaleDateString("fr-FR"), M, H-M-2);
+  }
+  function telechargerCartePdf(r){
+    if(!(window.jspdf && window.jspdf.jsPDF)){ toast("Moteur PDF non charge, rechargez la page", true); return; }
+    var J=window.jspdf.jsPDF;
+    try{
+      var doc=new J({ unit:"mm", format:[95,148] });
+      dessinerCarte(doc, r);
+      doc.save("Carte_"+(r.codePlanteur||"planteur")+".pdf");
+    }catch(e){ toast("PDF impossible : "+(e.message||e), true); }
+  }
   function telechargerToutesFichesPdf(){
     if(!records.length){ toast("Aucune fiche a exporter", true); return; }
     var J = window.jspdf && window.jspdf.jsPDF;
@@ -2271,10 +2368,10 @@ window.__APP__=function(){
   $("cPlanteur").addEventListener("change",function(){ var v=parseInt(this.value,10); if(v>=1){ nextPlanteur=v; persistAll(); refreshPreview(); } });
   $("cOrdre").addEventListener("change",function(){ var v=parseInt(this.value,10); if(v>=1){ nextOrdre=v; persistAll(); refreshPreview(); } });
   $("btnPrintPreview").onclick=function(){
-    if(editId){ var r=records.find(function(x){return x.id===editId;}); if(r) return telechargerFichePdf(r); }
+    if(editId){ var r=records.find(function(x){return x.id===editId;}); if(r) return telechargerCartePdf(r); }
     var f=readForm();
     var codeP=$("pvPlanteur").textContent, codePl=$("pvPlantation").textContent;
-    telechargerFichePdf(Object.assign({},f,{codePlanteur:codeP,codePlantation:codePl==="—"?"":codePl,cree:new Date().toISOString()}));
+    telechargerCartePdf(Object.assign({},f,{codePlanteur:codeP,codePlantation:codePl==="—"?"":codePl,cree:new Date().toISOString()}));
   };
 
   $("btnModalClose").onclick=fermerModale;
