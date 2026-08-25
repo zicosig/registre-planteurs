@@ -336,10 +336,14 @@
                 </div>
               </div>
 
-              <div class="field">
+              <div class="field" id="blocCoopRatt">
                 <label>Coopérative de rattachement</label>
                 <input id="fCoop" type="text" placeholder="Nom de la coopérative" autocomplete="off" list="coopList">
                 <datalist id="coopList"></datalist>
+              </div>
+              <div class="field" id="blocLocalite" style="display:none">
+                <label>Localité</label>
+                <input id="fLocalite" type="text" placeholder="Ville / village de la coopérative" autocomplete="off">
               </div>
 
               <div class="field">
@@ -1039,7 +1043,7 @@ window.__APP__=function(){
   var modePaie="mm";
   var CATS=["Pièce d'identité","Document foncier","Photo de la plantation","Contrat / engagement","RIB / attestation de compte","Autre"];
 
-  var FIELDS=["fNom","fPrenom","fRaison","fRccm","fTel","fTel2","fPieceType","fPieceNum","fPieceExp","fCoop",
+  var FIELDS=["fNom","fPrenom","fRaison","fRccm","fTel","fTel2","fPieceType","fPieceNum","fPieceExp","fCoop","fLocalite",
     "fVille","fAnnee","fSuperficie","fAnneeCrea","fPieds","fFoncier","fFoncierNum","fNote","fLat","fLng",
     "fMMOp","fMMNum","fMMTit","fBqNom","fBqSwift","fBqIban","fBqTit"];
 
@@ -1052,7 +1056,7 @@ window.__APP__=function(){
       tel:nettoyageTel(val("fTel")), tel2:nettoyageTel(val("fTel2")),
       piece:{type:val("fPieceType"), numero:val("fPieceNum"), expire:val("fPieceExp")},
       cooperative:val("fCoop"),
-      ville:val("fVille"), annee:Number(val("fAnnee"))||null,
+      ville: typeBenef==="cooperative" ? val("fLocalite") : val("fVille"), annee:Number(val("fAnnee"))||null,
       plantation:{superficie:val("fSuperficie")?Number(val("fSuperficie")):null, anneeCreation:Number(val("fAnneeCrea"))||null,
         pieds:Number(val("fPieds"))||null, foncier:val("fFoncier"), foncierNum:val("fFoncierNum")},
       note:val("fNote"),
@@ -1070,7 +1074,8 @@ window.__APP__=function(){
     $("fTel").value=formatTel(r.tel||""); $("fTel2").value=formatTel(r.tel2||"");
     var p=r.piece||{}; $("fPieceType").value=p.type||""; $("fPieceNum").value=p.numero||""; $("fPieceExp").value=p.expire||"";
     $("fCoop").value=r.cooperative||"";
-    $("fVille").value=r.ville||""; $("fAnnee").value=r.annee||"";
+    $("fLocalite").value=(r.type==="cooperative")?(r.ville||""):"";
+    $("fVille").value=(r.type!=="cooperative")?(r.ville||""):""; $("fAnnee").value=r.annee||"";
     var pl=r.plantation||{}; $("fSuperficie").value=pl.superficie!=null?pl.superficie:""; $("fAnneeCrea").value=pl.anneeCreation||"";
     $("fPieds").value=pl.pieds||""; $("fFoncier").value=pl.foncier||""; $("fFoncierNum").value=pl.foncierNum||"";
     $("fNote").value=r.note||"";
@@ -1100,6 +1105,8 @@ window.__APP__=function(){
     $("blocPlanteur").style.display = t==="planteur" ? "" : "none";
     $("blocCoop").style.display     = t==="cooperative" ? "" : "none";
     $("sectPlantation").style.display = t==="cooperative" ? "none" : "";
+    $("blocCoopRatt").style.display = t==="planteur" ? "" : "none";
+    $("blocLocalite").style.display = t==="cooperative" ? "" : "none";
   }
   function setMode(m){
     modePaie=m;
