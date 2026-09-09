@@ -272,8 +272,8 @@
               <div class="field">
                 <label>Type de bénéficiaire</label>
                 <div class="seg" id="segType">
-                  <button type="button" data-v="planteur" class="on">Planteur</button>
-                  <button type="button" data-v="cooperative">Coopérative</button>
+                  <button type="button" data-v="planteur" class="on">Code producteur</button>
+                  <button type="button" data-v="cooperative">Code coopérative</button>
                 </div>
               </div>
 
@@ -299,6 +299,28 @@
                   <label>Numéro RCCM</label>
                   <input id="fRccm" type="text" placeholder="CI-ABJ-2019-B-12345" autocomplete="off">
                   <div class="hint">Registre du commerce et du crédit mobilier — obligatoire pour une coopérative.</div>
+                </div>
+                <div class="field">
+                  <label>Statut de l'entreprise <span class="req">*</span></label>
+                  <select id="fStatutEntreprise">
+                    <option value="">—</option>
+                    <option value="SA">SA</option>
+                    <option value="SARL">SARL</option>
+                    <option value="SAS">SAS</option>
+                    <option value="ASSOCIATION">ASSOCIATION</option>
+                    <option value="EI">ENTREPRISE INDIVIDUELLE (EI)</option>
+                    <option value="SASU">SASU</option>
+                    <option value="GIE">GIE</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label>Déclaration Fiscale d'Existence (DFE) <span class="req">*</span></label>
+                  <input id="fDfe" type="text" placeholder="Numéro DFE" autocomplete="off">
+                </div>
+                <div class="field">
+                  <label>Agrément</label>
+                  <input id="fAgrement" type="text" placeholder="Numéro d'agrément" autocomplete="off">
+                  <div class="hint">Facultatif — l'agrément n'est pas obligatoire, contrairement au statut et à la DFE.</div>
                 </div>
               </div>
 
@@ -525,7 +547,7 @@
           <div class="card-b">
             <div class="pv">
               <div class="pvbox">
-                <div class="k">Code planteur</div>
+                <div class="k" id="pvCodeLabel">Code producteur</div>
                 <div class="v" id="pvPlanteur">00001</div>
               </div>
               <div class="pvbox">
@@ -1043,7 +1065,7 @@ window.__APP__=function(){
   var modePaie="mm";
   var CATS=["Pièce d'identité","Document foncier","Photo de la plantation","Contrat / engagement","RIB / attestation de compte","Autre"];
 
-  var FIELDS=["fNom","fPrenom","fRaison","fRccm","fTel","fTel2","fPieceType","fPieceNum","fPieceExp","fCoop","fLocalite",
+  var FIELDS=["fNom","fPrenom","fRaison","fRccm","fStatutEntreprise","fDfe","fAgrement","fTel","fTel2","fPieceType","fPieceNum","fPieceExp","fCoop","fLocalite",
     "fVille","fAnnee","fSuperficie","fAnneeCrea","fPieds","fFoncier","fFoncierNum","fNote","fLat","fLng",
     "fMMOp","fMMNum","fMMTit","fBqNom","fBqSwift","fBqIban","fBqTit"];
 
@@ -1053,6 +1075,7 @@ window.__APP__=function(){
     return {
       type:typeBenef,
       nom:val("fNom").toUpperCase(), prenom:val("fPrenom"), raison:val("fRaison"), rccm:val("fRccm"),
+      statutEntreprise:val("fStatutEntreprise"), dfe:val("fDfe"), agrement:val("fAgrement"),
       tel:nettoyageTel(val("fTel")), tel2:nettoyageTel(val("fTel2")),
       piece:{type:val("fPieceType"), numero:val("fPieceNum"), expire:val("fPieceExp")},
       cooperative:val("fCoop"),
@@ -1071,6 +1094,7 @@ window.__APP__=function(){
   function fillForm(r){
     setType(r.type||"planteur");
     $("fNom").value=r.nom||""; $("fPrenom").value=r.prenom||""; $("fRaison").value=r.raison||""; $("fRccm").value=r.rccm||"";
+    $("fStatutEntreprise").value=r.statutEntreprise||""; $("fDfe").value=r.dfe||""; $("fAgrement").value=r.agrement||"";
     $("fTel").value=formatTel(r.tel||""); $("fTel2").value=formatTel(r.tel2||"");
     var p=r.piece||{}; $("fPieceType").value=p.type||""; $("fPieceNum").value=p.numero||""; $("fPieceExp").value=p.expire||"";
     $("fCoop").value=r.cooperative||"";
@@ -1107,6 +1131,7 @@ window.__APP__=function(){
     $("sectPlantation").style.display = t==="cooperative" ? "none" : "";
     $("blocCoopRatt").style.display = t==="planteur" ? "" : "none";
     $("blocLocalite").style.display = t==="cooperative" ? "" : "none";
+    $("pvCodeLabel").textContent = t==="cooperative" ? "Code coopérative" : "Code producteur";
   }
   function setMode(m){
     modePaie=m;
@@ -1205,6 +1230,7 @@ window.__APP__=function(){
      ========================================================= */
   var leafletOk = (typeof L!=="undefined");
   var mapF=null, markerF=null, mapA=null, layerA=null, fondA=null;
+  var mapAdm=null, layerAdm=null;
   var FONDS={
     osm:{u:"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",a:"© OpenStreetMap"},
     sat:{u:"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",a:"© Esri, Maxar"},
@@ -1329,7 +1355,7 @@ window.__APP__=function(){
       !!(mm.operateur&&(mm.numero||"").length===10);
     var estCoop = f.type==="cooperative";
     var crit=[
-      {k:"Identité du bénéficiaire", ok: estCoop ? !!(f.raison&&f.rccm) : !!(f.nom&&f.prenom)},
+      {k:"Identité du bénéficiaire", ok: estCoop ? !!(f.raison&&f.rccm&&f.statutEntreprise&&f.dfe) : !!(f.nom&&f.prenom)},
       {k:"Téléphone valide", ok:(f.tel||"").length===10},
       {k:"Pièce d'identité renseignée", ok:!!(pc.type&&pc.numero)},
       {k:"Photo de la CNI", ok:!!f.photo},
@@ -1370,10 +1396,14 @@ window.__APP__=function(){
     var f=readForm(), ok=true;
     if(f.type==="cooperative"){
       ok &= marquerErreur("fRaison",!f.raison);
+      ok &= marquerErreur("fRccm",!f.rccm);
+      ok &= marquerErreur("fStatutEntreprise",!f.statutEntreprise);
+      ok &= marquerErreur("fDfe",!f.dfe);
       $("fNom").classList.remove("err"); $("fPrenom").classList.remove("err");
     } else {
       ok &= marquerErreur("fNom",!f.nom); ok &= marquerErreur("fPrenom",!f.prenom);
-      $("fRaison").classList.remove("err");
+      $("fRaison").classList.remove("err"); $("fRccm").classList.remove("err");
+      $("fStatutEntreprise").classList.remove("err"); $("fDfe").classList.remove("err");
     }
     if(f.type==="cooperative"){
       $("fVille").classList.remove("err"); $("fAnnee").classList.remove("err"); $("fSuperficie").classList.remove("err");
@@ -1467,22 +1497,113 @@ window.__APP__=function(){
     var im=$("btnImport"); if(im) im.style.display=admin?"":"none";
   }
   function carteStat(t,v){ return '<div class="admcard"><div class="admcard-t">'+t+'</div><div class="admcard-v">'+v+'</div></div>'; }
-  function rendreDashboard(){
-    var recs=records||[], total=recs.length, parAgent={}, parVillage={}, superf=0, geoloc=0;
+  function admBar(label,val,max){
+    var pct = max>0 ? Math.round(val/max*100) : 0;
+    return '<div class="admbar-row"><div class="admbar-label">'+esc(label)+'</div>'+
+      '<div class="admbar-track"><div class="admbar-fill" style="width:'+pct+'%"></div></div>'+
+      '<div class="admbar-val">'+val+'</div></div>';
+  }
+  function calculerStatsDashboard(){
+    var recs=records||[], total=recs.length, parAgent={}, parVillage={}, parStatut={}, superf=0, geoloc=0,
+        coops=0, planteursN=0, montantPaye=0, nbPaiements=0, sommeComplet=0;
     recs.forEach(function(r){
       var a=r.agent||"—"; parAgent[a]=(parAgent[a]||0)+1;
       var v=r.ville||"—"; parVillage[v]=(parVillage[v]||0)+1;
       superf+=Number((r.plantation||{}).superficie)||0;
       if(r.geo) geoloc++;
+      if(r.type==="cooperative"){ coops++; var st=r.statutEntreprise||"Non renseigné"; parStatut[st]=(parStatut[st]||0)+1; }
+      else planteursN++;
+      sommeComplet+=tauxComplet(r);
+      (r.paiements||[]).forEach(function(p){ if(p.statut==="paye"){ montantPaye+=Number(p.montant)||0; nbPaiements++; } });
     });
+    return { total:total, planteursN:planteursN, coops:coops, superf:superf, geoloc:geoloc,
+      montantPaye:montantPaye, nbPaiements:nbPaiements, completMoy: total?Math.round(sommeComplet/total):0,
+      parAgent:parAgent, parVillage:parVillage, parStatut:parStatut };
+  }
+  function exporterDashboardCsv(){
+    var s=calculerStatsDashboard();
     function tri(o){ return Object.keys(o).sort(function(a,b){return o[b]-o[a];}); }
-    var h='<div class="admcards">'+carteStat("Fiches totales",total)+carteStat("Superficie",superf.toFixed(1)+" ha")+
-          carteStat("Géolocalisées",geoloc)+carteStat("Agents ayant saisi",tri(parAgent).length)+'</div>';
-    h+='<h4>Fiches par agent</h4><table class="admtab"><tbody>'+
-       tri(parAgent).map(function(a){return '<tr><td>'+esc(a)+'</td><td class="r">'+parAgent[a]+'</td></tr>';}).join("")+'</tbody></table>';
-    h+='<h4 style="margin-top:12px">Fiches par village (top 12)</h4><table class="admtab"><tbody>'+
-       tri(parVillage).slice(0,12).map(function(v){return '<tr><td>'+esc(v)+'</td><td class="r">'+parVillage[v]+'</td></tr>';}).join("")+'</tbody></table>';
+    var lines=["Indicateur;Valeur"];
+    lines.push("Fiches totales;"+s.total);
+    lines.push("Producteurs;"+s.planteursN);
+    lines.push("Coopératives;"+s.coops);
+    lines.push("Superficie totale (ha);"+s.superf.toFixed(1));
+    lines.push("Fiches géolocalisées;"+s.geoloc);
+    lines.push("Complétude moyenne (%);"+s.completMoy);
+    lines.push("Paiements effectués;"+s.nbPaiements);
+    lines.push("Montant total payé;"+Math.round(s.montantPaye));
+    lines.push("");
+    lines.push("Coopératives par statut d'entreprise;Nombre");
+    tri(s.parStatut).forEach(function(k){ lines.push(csvCell(k)+";"+s.parStatut[k]); });
+    lines.push("");
+    lines.push("Fiches par village;Nombre");
+    tri(s.parVillage).forEach(function(k){ lines.push(csvCell(k)+";"+s.parVillage[k]); });
+    lines.push("");
+    lines.push("Fiches par agent;Nombre");
+    tri(s.parAgent).forEach(function(k){ lines.push(csvCell(k)+";"+s.parAgent[k]); });
+    dl("\uFEFF"+lines.join("\r\n"),"tableau_de_bord_"+stamp()+".csv","text/csv;charset=utf-8");
+    toast("Export du tableau de bord généré");
+  }
+  function initMapAdmin(){
+    var note=$("adminMapNote");
+    if(!leafletOk){ if(note) note.textContent="Carte indisponible : la connexion internet est requise pour charger le fond de plan."; return; }
+    if(mapAdm){ try{ mapAdm.remove(); }catch(e){} mapAdm=null; layerAdm=null; }
+    mapAdm=L.map("adminMap").setView(CENTRE,ZOOM);
+    L.tileLayer(FONDS.osm.u,{attribution:FONDS.osm.a,maxZoom:19}).addTo(mapAdm);
+    layerAdm=L.layerGroup().addTo(mapAdm);
+  }
+  function renderMapAdmin(){
+    if(!mapAdm||!layerAdm) return;
+    layerAdm.clearLayers();
+    var pts=[];
+    (records||[]).forEach(function(r){
+      if(!r.geo) return;
+      var m=L.marker([r.geo.lat,r.geo.lng]);
+      m.bindPopup('<b>'+esc(r.codePlanteur)+'</b> — '+esc(nomComplet(r))+'<br>'+esc(r.ville||""));
+      layerAdm.addLayer(m); pts.push([r.geo.lat,r.geo.lng]);
+    });
+    var n=pts.length, note=$("adminMapNote");
+    if(note) note.textContent=n+" plantation"+(n>1?"s":"")+" géolocalisée"+(n>1?"s":"")+" sur "+(records||[]).length+" fiche"+((records||[]).length>1?"s":"")+".";
+    if(n){ try{ mapAdm.fitBounds(pts,{padding:[30,30],maxZoom:14}); }catch(e){} }
+    mapAdm.invalidateSize();
+  }
+  function rendreDashboard(){
+    var s=calculerStatsDashboard();
+    function tri(o){ return Object.keys(o).sort(function(a,b){return o[b]-o[a];}); }
+    var h='<div class="admcards">'+
+          carteStat("Fiches totales",s.total)+
+          carteStat("Producteurs",s.planteursN)+
+          carteStat("Coopératives",s.coops)+
+          carteStat("Superficie",s.superf.toFixed(1)+" ha")+
+          carteStat("Géolocalisées",s.geoloc)+
+          carteStat("Complétude moy.",s.completMoy+" %")+
+          carteStat("Paiements",s.nbPaiements)+
+          carteStat("Montant payé",Math.round(s.montantPaye).toLocaleString("fr-FR")+" F")+
+          '</div>';
+    h+='<div class="btnrow" style="margin:2px 0 14px"><button class="btn sm" id="btnDashCsv">Exporter les statistiques (CSV)</button></div>';
+
+    var clesStatut=tri(s.parStatut);
+    if(clesStatut.length){
+      var maxStatut=Math.max.apply(null, clesStatut.map(function(k){return s.parStatut[k];}));
+      h+='<h4>Coopératives par statut d\'entreprise</h4>'+clesStatut.map(function(k){return admBar(k,s.parStatut[k],maxStatut);}).join("");
+    }
+
+    var clesVillage=tri(s.parVillage).slice(0,12);
+    if(clesVillage.length){
+      var maxVillage=Math.max.apply(null, clesVillage.map(function(k){return s.parVillage[k];}));
+      h+='<h4 style="margin-top:14px">Fiches par village (top 12)</h4>'+clesVillage.map(function(v){return admBar(v,s.parVillage[v],maxVillage);}).join("");
+    }
+
+    h+='<h4 style="margin-top:14px">Fiches par agent</h4><table class="admtab"><tbody>'+
+       tri(s.parAgent).map(function(a){return '<tr><td>'+esc(a)+'</td><td class="r">'+s.parAgent[a]+'</td></tr>';}).join("")+'</tbody></table>';
+
+    h+='<h4 style="margin-top:14px">Carte des plantations géolocalisées</h4>'+
+       '<div id="adminMap" style="height:260px;border-radius:9px;border:1px solid #e4d8c8"></div>'+
+       '<div class="hint" id="adminMapNote" style="margin-top:4px"></div>';
+
     $("adminDash").innerHTML=h;
+    var bc=$("btnDashCsv"); if(bc) bc.onclick=exporterDashboardCsv;
+    setTimeout(function(){ initMapAdmin(); renderMapAdmin(); },60);
   }
   function chargerAgents(){
     var box=$("adminAgents");
@@ -1712,7 +1833,8 @@ window.__APP__=function(){
     h.push('</div>');
 
     h.push('<h4 style="margin:14px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:#5A2E12">Identité</h4><dl class="dl">');
-    if(r.type==="cooperative"){ h.push(ligne("Raison sociale",esc(r.raison))+ligne("RCCM",esc(r.rccm))); }
+    if(r.type==="cooperative"){ h.push(ligne("Raison sociale",esc(r.raison))+ligne("RCCM",esc(r.rccm))+
+      ligne("Statut de l'entreprise",esc(r.statutEntreprise))+ligne("DFE",esc(r.dfe))+ligne("Agrément",r.agrement?esc(r.agrement):"—")); }
     else { h.push(ligne("Nom",esc(r.nom))+ligne("Prénom(s)",esc(r.prenom))); }
     h.push(ligne("Téléphone",formatTel(r.tel))+ligne("Téléphone 2",r.tel2?formatTel(r.tel2):"")+
       ligne("Pièce d'identité",esc([pc.type,pc.numero].filter(Boolean).join(" · ")))+
@@ -3666,6 +3788,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
   #adminOverlay .admaddrow input{padding:5px;border:1px solid #ccc;border-radius:5px;font-size:13px}
   #adminOverlay .admaddrow input[type=number]{width:84px}
   #adminOverlay .admdel{background:#b91c1c;border-color:#b91c1c;color:#fff}
+  #adminOverlay .admbar-row{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:12.5px}
+  #adminOverlay .admbar-label{width:170px;flex:0 0 170px;color:#5A2E12;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #adminOverlay .admbar-track{flex:1;background:#f0e6d8;border-radius:4px;height:14px;overflow:hidden}
+  #adminOverlay .admbar-fill{background:#9A5A2A;height:100%;border-radius:4px}
+  #adminOverlay .admbar-val{width:34px;flex:0 0 34px;text-align:right;font-weight:600;color:#5A2E12}
 </style>
 </body>
 </html>
