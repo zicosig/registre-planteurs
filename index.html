@@ -178,6 +178,11 @@
   .modal-h{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px;position:sticky;top:0;background:#fff;border-radius:12px 12px 0 0}
   .modal-h h3{margin:0;font-size:15px}
   .modal-b{padding:18px}
+  .imp-t{width:100%;border-collapse:collapse;font-size:12px}
+  .imp-t th,.imp-t td{padding:5px 7px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  .imp-t tr.ok td:last-child{color:#15803d}
+  .imp-t tr.av td:last-child{color:#b45309}
+  .imp-t tr.ko td{color:#b91c1c}
   .x{background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted);line-height:1;padding:2px 6px}
   .dl{display:grid;grid-template-columns:150px 1fr;gap:6px 14px;font-size:13.5px;margin:0}
   .dl dt{color:var(--muted);font-size:12px;font-weight:600}
@@ -240,6 +245,7 @@
         </div>
       </div>
       <button class="btn sm" id="btnBackup">Sauvegarder</button>
+      <button class="btn sm" id="btnImportPl">Importer des planteurs</button>
       <button class="btn sm ghost" id="btnImport">Restaurer</button>
       <input type="file" id="fileImport" accept="application/json,.json" hidden>
       <button class="btn sm" id="btnAdmin" style="display:none">Admin</button>
@@ -729,6 +735,27 @@
 
 </div>
 
+<!-- Modale import de planteurs -->
+<div class="overlay" id="ovImport">
+  <div class="modal">
+    <div class="modal-h">
+      <h3>Importer des planteurs</h3>
+      <div class="btnrow"><button class="x" id="impClose">×</button></div>
+    </div>
+    <div class="modal-b">
+      <p class="hint" style="margin:0 0 12px;line-height:1.5">Importez un ou plusieurs planteurs ou coopératives depuis un fichier <b>CSV</b> ou <b>Excel (.xlsx)</b>. Une ligne = une fiche. Colonnes minimales : <b>nom</b>, <b>prenoms</b>, <b>telephone</b>, <b>village</b>, <b>annee_culture</b> (pour une coopérative : <b>type</b> = cooperative, <b>raison_sociale</b>, <b>telephone</b>). Les codes <b>CCG-…</b> et <b>…PLT</b> sont générés automatiquement si les colonnes code_planteur / code_plantation sont vides.</p>
+      <div class="btnrow" style="flex-wrap:wrap;gap:8px;margin-bottom:12px">
+        <button class="btn sm ghost" id="impModele">Télécharger le modèle</button>
+        <button class="btn sm" id="impChoisir">Choisir un fichier…</button>
+        <input type="file" id="impFile" accept=".csv,.txt,.xlsx,.xls,text/csv" hidden>
+      </div>
+      <label style="display:flex;gap:8px;align-items:center;font-size:13px;margin-bottom:10px"><input type="checkbox" id="impDoublons"> Importer aussi les doublons possibles</label>
+      <p id="impResume" style="font-size:13px;font-weight:600;margin:0 0 8px">Aucun fichier choisi.</p>
+      <div id="impApercu" style="max-height:50vh;overflow:auto"></div>
+      <div class="btnrow" style="justify-content:flex-end;margin-top:14px"><button class="btn" id="impGo" disabled>Importer</button></div>
+    </div>
+  </div>
+</div>
 <!-- Modale fiche -->
 <div class="overlay" id="overlay">
   <div class="modal">
@@ -844,6 +871,9 @@ window.__APP__=function(){
      ========================================================= */
   var $=function(id){ return document.getElementById(id); };
   function pad5(n){ return String(n).padStart(5,"0"); }
+  /* Code planteur : CCG-001, CCG-002… (3 chiffres minimum). Les anciens codes numériques restent valides. */
+  function fmtCodeP(n){ return "CCG-"+String(n).padStart(3,"0"); }
+  function numPlanteur(c){ var m=/(\d+)\s*$/.exec(String(c==null?"":c)); return m?parseInt(m[1],10):NaN; }
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];}); }
   function uid(){ return Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,8); }
 
@@ -878,7 +908,7 @@ window.__APP__=function(){
   function fmtMontant(n){ return (Number(n)||0).toLocaleString("fr-FR")+" F"; }
   function fmtDate(iso){ if(!iso) return "—"; var d=new Date(iso); if(isNaN(d)) return iso; return d.toLocaleDateString("fr-FR"); }
   function fmtTaille(o){ if(o<1024) return o+" o"; if(o<1048576) return (o/1024).toFixed(0)+" Ko"; return (o/1048576).toFixed(1)+" Mo"; }
-  function codePlantation(ville,annee,ordre){ var i=initiales(ville); if(!i||!annee) return ""; return i+"-"+annee+"-"+pad5(ordre); }
+  function codePlantation(ville,annee,ordre){ var i=initiales(ville); if(!i||!annee) return ""; return i+"-"+annee+"-"+pad5(ordre)+"PLT"; }
   function nomComplet(r){ return r.type==="cooperative" ? (r.raison||"") : ((r.nom||"")+" "+(r.prenom||"")).trim(); }
 
   function toast(msg,warn){
@@ -1290,8 +1320,9 @@ window.__APP__=function(){
      9. APERÇU DES CODES + COMPLÉTUDE
      ========================================================= */
   function codesPris(){
-    var s={p:{},pl:{}};
-    records.forEach(function(r){ s.p[r.codePlanteur]=r.id; s.pl[r.codePlantation]=r.id; });
+    var s={p:{},pl:{},pn:{}};
+    records.forEach(function(r){ s.p[r.codePlanteur]=r.id; s.pl[r.codePlantation]=r.id;
+      var n=numPlanteur(r.codePlanteur); if(!isNaN(n)) s.pn[n]=r.id; });
     return s;
   }
   /* Aligne automatiquement les compteurs (code planteur + n° d'ordre) sur le numero le plus
@@ -1300,9 +1331,9 @@ window.__APP__=function(){
   function recalerCompteurs(){
     var maxP=0, maxO=0;
     records.forEach(function(r){
-      var n=parseInt(r.codePlanteur,10);
+      var n=numPlanteur(r.codePlanteur);
       if(!isNaN(n) && n>maxP) maxP=n;
-      var m=/-([0-9]+)$/.exec(r.codePlantation||"");
+      var m=/-([0-9]+)(?:PLT)?$/i.exec(r.codePlantation||"");
       if(m){ var o=parseInt(m[1],10); if(!isNaN(o) && o>maxO) maxO=o; }
     });
     if(maxP+1>nextPlanteur) nextPlanteur=maxP+1;
@@ -1311,9 +1342,9 @@ window.__APP__=function(){
   function prochainCodePlanteur(){
     var pris=codesPris().p, u=SEC.user(), pl=u&&u.plage;
     if(pl && nextPlanteur<pl.min) nextPlanteur=pl.min;
-    while(pris[pad5(nextPlanteur)]) nextPlanteur++;
-    if(pl && nextPlanteur>pl.max) return pad5(pl.max);   // plage épuisée : signalé à l'enregistrement
-    return pad5(nextPlanteur);
+    while(codesPris().pn[nextPlanteur]) nextPlanteur++;
+    if(pl && nextPlanteur>pl.max) return fmtCodeP(pl.max);   // plage épuisée : signalé à l'enregistrement
+    return fmtCodeP(nextPlanteur);
   }
   function prochainOrdre(ville,annee){
     var pris=codesPris().pl;
@@ -1341,7 +1372,7 @@ window.__APP__=function(){
     $("qrBox").innerHTML=QR.svg(contenuQr(codeP,codePl,f),150);
     $("qrCap").textContent="QR — "+codeP+(codePl?" / "+codePl:"");
     $("barBox").innerHTML=BAR.svg(codeP,42,240);
-    var doublonCode = !ref && codesPris().p[codeP];
+    var doublonCode = !ref && codesPris().pn[numPlanteur(codeP)];
     $("uniqPill").textContent = doublonCode ? "Conflit de code" : "Unicité vérifiée";
     $("uniqPill").style.color = doublonCode ? "#b91c1c" : "";
     majComplet(f);
@@ -1450,7 +1481,7 @@ window.__APP__=function(){
     } else {
       var codeP=prochainCodePlanteur(), ord=prochainOrdre(f.ville,f.annee);
       var moi=SEC.user();
-      if(moi && moi.plage && Number(codeP)>=moi.plage.max){
+      if(moi && moi.plage && numPlanteur(codeP)>=moi.plage.max){
         toast("Plage de codes épuisée ("+moi.plage.min+" – "+moi.plage.max+") : contactez l'administrateur",true); return;
       }
       var rec=Object.assign({},f,{
@@ -1458,7 +1489,7 @@ window.__APP__=function(){
         agent:moi?moi.login:"", paiements:[], cree:new Date().toISOString(), modifie:new Date().toISOString()
       });
       records.push(rec);
-      nextPlanteur=Number(codeP)+1; nextOrdre=ord+1;
+      nextPlanteur=numPlanteur(codeP)+1; nextOrdre=ord+1;
       persistAll();
       toast("Enregistré : "+rec.codePlanteur+" / "+rec.codePlantation);
       resetForm(true);
@@ -1901,7 +1932,7 @@ window.__APP__=function(){
   function majSelectPaie(){
     var sel=$("payWho"), cur=sel.value;
     sel.innerHTML='<option value="">— Choisir —</option>'+records.slice().sort(function(a,b){
-      return a.codePlanteur.localeCompare(b.codePlanteur);
+      return (numPlanteur(a.codePlanteur)||0)-(numPlanteur(b.codePlanteur)||0);
     }).map(function(r){
       return '<option value="'+r.id+'">'+esc(r.codePlanteur+" — "+nomComplet(r))+'</option>';
     }).join("");
@@ -2494,6 +2525,345 @@ window.__APP__=function(){
   $("btnBackup").onclick=exportBackup;
   $("btnImport").onclick=function(){ $("fileImport").click(); };
   $("fileImport").addEventListener("change",function(){ if(this.files[0]){ importBackup(this.files[0]); this.value=""; } });
+
+  /* =========================================================
+     IMPORT DE PLANTEURS (CSV, Excel .xlsx, export .xls de l'appli)
+     ========================================================= */
+  var IMP={lignes:[]};
+  var IMP_COLS=["type","nom","prenoms","raison_sociale","rccm","telephone","telephone2","piece_type","piece_numero",
+    "cooperative","village","annee_culture","superficie_ha","annee_creation","nombre_pieds","statut_foncier","num_doc_foncier",
+    "latitude","longitude","mode_paiement","operateur_mm","numero_mm","titulaire","banque","iban","swift","observations",
+    "code_planteur","code_plantation"];
+  /* en-têtes reconnus (normalisés : minuscules, sans accents ni ponctuation) */
+  var IMP_ALIAS={
+    type:["type","typebeneficiaire"],
+    nom:["nom","nomraisonsociale","nomdefamille"],
+    prenoms:["prenoms","prenom"],
+    raison_sociale:["raisonsociale","raison","nomcooperative"],
+    rccm:["rccm"],
+    telephone:["telephone","tel","contact","telephone1","numerodetelephone"],
+    telephone2:["telephone2","tel2","telephonesecondaire"],
+    piece_type:["piecetype","piece","typepiece","typedepiece"],
+    piece_numero:["piecenumero","npiece","numeropiece","numpiece","ncni","cni"],
+    cooperative:["cooperative","cooperativederattachement"],
+    village:["village","ville","localite"],
+    annee_culture:["anneeculture","anneedeculture","annee"],
+    superficie_ha:["superficieha","superficie"],
+    annee_creation:["anneecreation","anneedecreation"],
+    nombre_pieds:["nombrepieds","pieds","nombredepieds"],
+    statut_foncier:["statutfoncier","foncier"],
+    num_doc_foncier:["numdocfoncier","ndocumentfoncier","numerodocumentfoncier"],
+    latitude:["latitude","lat"],
+    longitude:["longitude","lng","lon","long"],
+    mode_paiement:["modepaiement","modedepaiement","paiement"],
+    operateur_mm:["operateurmm","operateur"],
+    numero_mm:["numeromm","nummm","numeromobilemoney"],
+    titulaire:["titulaire"],
+    banque:["banque"],
+    iban:["iban"],
+    swift:["swift","swiftbic","bic"],
+    observations:["observations","note","notes","remarques"],
+    code_planteur:["codeplanteur"],
+    code_plantation:["codeplantation"]
+  };
+  function normEntete(s){ return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]/g,""); }
+  function champDe(entete){
+    var n=normEntete(entete);
+    for(var k in IMP_ALIAS){ if(IMP_ALIAS[k].indexOf(n)>=0) return k; }
+    return null;
+  }
+
+  /* ---- lecture CSV (séparateur ; , ou tabulation détecté automatiquement) ---- */
+  function lireCsv(txt){
+    txt=txt.replace(/^﻿/,"");
+    var l1=txt.split(/\r?\n/)[0]||"";
+    var sep=[";","\t",","].sort(function(a,b){ return l1.split(b).length-l1.split(a).length; })[0];
+    var rows=[], row=[], cell="", q=false;
+    for(var i=0;i<txt.length;i++){
+      var c=txt[i];
+      if(q){
+        if(c==='"'){ if(txt[i+1]==='"'){ cell+='"'; i++; } else q=false; }
+        else cell+=c;
+      } else if(c==='"') q=true;
+      else if(c===sep){ row.push(cell); cell=""; }
+      else if(c==="\n"||c==="\r"){ if(c==="\r"&&txt[i+1]==="\n") i++; row.push(cell); rows.push(row); row=[]; cell=""; }
+      else cell+=c;
+    }
+    if(cell!==""||row.length){ row.push(cell); rows.push(row); }
+    return rows;
+  }
+  /* ---- lecture du tableau HTML (fichier .xls exporté par l'application) ---- */
+  function lireTableHtml(txt){
+    var d=new DOMParser().parseFromString(txt,"text/html"), t=d.querySelector("table");
+    if(!t) return null;
+    return Array.prototype.map.call(t.querySelectorAll("tr"),function(tr){
+      return Array.prototype.map.call(tr.querySelectorAll("th,td"),function(td){ return td.textContent.trim(); });
+    });
+  }
+  /* ---- lecture .xlsx sans bibliothèque externe (zip + XML) ---- */
+  function inflerZip(bytes,methode){
+    if(methode===0) return Promise.resolve(bytes);
+    if(methode!==8||typeof DecompressionStream==="undefined") return Promise.reject(new Error("xlsx-non-supporte"));
+    var ds=new DecompressionStream("deflate-raw");
+    var flux=new Blob([bytes]).stream().pipeThrough(ds);
+    return new Response(flux).arrayBuffer().then(function(b){ return new Uint8Array(b); });
+  }
+  function lireZip(buf){
+    var u=new Uint8Array(buf), dv=new DataView(buf), eocd=-1;
+    for(var i=u.length-22;i>=Math.max(0,u.length-66000);i--){ if(dv.getUint32(i,true)===0x06054b50){ eocd=i; break; } }
+    if(eocd<0) throw new Error("zip");
+    var nb=dv.getUint16(eocd+10,true), p=dv.getUint32(eocd+16,true), ent={};
+    for(var k=0;k<nb;k++){
+      if(dv.getUint32(p,true)!==0x02014b50) break;
+      var meth=dv.getUint16(p+10,true), taille=dv.getUint32(p+20,true),
+          ln=dv.getUint16(p+28,true), le=dv.getUint16(p+30,true), lc=dv.getUint16(p+32,true), off=dv.getUint32(p+42,true);
+      var nom=new TextDecoder().decode(u.subarray(p+46,p+46+ln));
+      ent[nom]={meth:meth,taille:taille,off:off};
+      p+=46+ln+le+lc;
+    }
+    return function(nom){
+      var e=ent[nom]; if(!e) return Promise.resolve(null);
+      var d=e.off+30+dv.getUint16(e.off+26,true)+dv.getUint16(e.off+28,true);
+      return inflerZip(u.subarray(d,d+e.taille),e.meth).then(function(b){ return new TextDecoder().decode(b); });
+    };
+  }
+  function xmlDoc(t){ return new DOMParser().parseFromString(t,"application/xml"); }
+  function parTag(n,tag){ return Array.prototype.slice.call(n.getElementsByTagNameNS("*",tag)); }
+  function lireXlsx(buf){
+    var lire=lireZip(buf), partages=[];
+    return Promise.all([lire("xl/sharedStrings.xml"),lire("xl/workbook.xml"),lire("xl/_rels/workbook.xml.rels")]).then(function(r){
+      if(r[0]) partages=parTag(xmlDoc(r[0]),"si").map(function(si){ return parTag(si,"t").map(function(t){return t.textContent;}).join(""); });
+      var cible="xl/worksheets/sheet1.xml";
+      if(r[1]&&r[2]){
+        var f=parTag(xmlDoc(r[1]),"sheet")[0];
+        var rid=f&&(f.getAttribute("r:id")||f.getAttributeNS("http://schemas.openxmlformats.org/officeDocument/2006/relationships","id"));
+        parTag(xmlDoc(r[2]),"Relationship").forEach(function(rel){
+          if(rel.getAttribute("Id")===rid){ var t=rel.getAttribute("Target"); cible=t.charAt(0)==="/"?t.slice(1):"xl/"+t; }
+        });
+      }
+      return lire(cible);
+    }).then(function(xml){
+      if(!xml) throw new Error("feuille");
+      var rows=[];
+      parTag(xmlDoc(xml),"row").forEach(function(rw){
+        var ligne=[];
+        parTag(rw,"c").forEach(function(c){
+          var ref=c.getAttribute("r")||"", col=0, m=/^([A-Z]+)/.exec(ref);
+          if(m){ for(var i=0;i<m[1].length;i++) col=col*26+(m[1].charCodeAt(i)-64); col--; } else col=ligne.length;
+          var t=c.getAttribute("t"), v=parTag(c,"v")[0], val="";
+          if(t==="s") val=v?(partages[parseInt(v.textContent,10)]||""):"";
+          else if(t==="inlineStr") val=parTag(c,"t").map(function(x){return x.textContent;}).join("");
+          else val=v?v.textContent:"";
+          ligne[col]=val;
+        });
+        for(var j=0;j<ligne.length;j++) if(ligne[j]==null) ligne[j]="";
+        rows.push(ligne);
+      });
+      return rows;
+    });
+  }
+  function lireFichierImport(file){
+    var nom=(file.name||"").toLowerCase();
+    if(/\.xlsx$/.test(nom)) return file.arrayBuffer().then(lireXlsx);
+    return file.text().then(function(txt){
+      if(/^\s*</.test(txt)){ var t=lireTableHtml(txt); if(t) return t; }
+      if(/\.xls$/.test(nom)) throw new Error("xls-binaire");
+      return lireCsv(txt);
+    });
+  }
+
+  /* ---- conversion d'une ligne du fichier en fiche ---- */
+  function nombre(v){ v=String(v==null?"":v).trim().replace(/\s/g,"").replace(",","."); if(v==="") return null; var n=Number(v); return isNaN(n)?NaN:n; }
+  function telImport(v,av){
+    var d=String(v||"").replace(/\D/g,"");
+    if(d.length===12&&d.indexOf("225")===0) d=d.slice(3);
+    if(d.length===9){ d="0"+d; av.push("0 initial rajouté au téléphone"); }
+    return d;
+  }
+  function modeImport(v){
+    var n=normEntete(v);
+    if(!n) return "";
+    if(n.indexOf("espece")===0||n==="cash") return "especes";
+    if(n.indexOf("banq")===0||n.indexOf("compte")===0||n==="virement") return "banque";
+    return "mm";
+  }
+  function operateurImport(v){
+    var n=normEntete(v); if(!n) return "";
+    var opts=Array.prototype.map.call($("fMMOp").options,function(o){return o.value;}).filter(Boolean);
+    for(var i=0;i<opts.length;i++){ var o=normEntete(opts[i]); if(o&&(o.indexOf(n)>=0||n.indexOf(o)>=0)) return opts[i]; }
+    return v;
+  }
+  function optionImport(selId,v){
+    if(!v) return "";
+    var n=normEntete(v), opts=Array.prototype.map.call($(selId).options,function(o){return o.value;}).filter(Boolean);
+    for(var i=0;i<opts.length;i++){ if(normEntete(opts[i])===n) return opts[i]; }
+    for(i=0;i<opts.length;i++){ var o=normEntete(opts[i]); if(o.indexOf(n)>=0||n.indexOf(o)>=0) return opts[i]; }
+    return v;
+  }
+  function ficheDepuisLigne(o){
+    var err=[], av=[];
+    var coop=/coop/i.test(o.type||"");
+    var tel=telImport(o.telephone,av), tel2=telImport(o.telephone2,[]);
+    var mode=modeImport(o.mode_paiement) || (o.iban?"banque":(o.numero_mm||o.operateur_mm)?"mm":"especes");
+    var lat=nombre(o.latitude), lng=nombre(o.longitude);
+    var f={
+      type:coop?"cooperative":"planteur",
+      nom:coop?"":String(o.nom||"").trim().toUpperCase(), prenom:coop?"":String(o.prenoms||"").trim(),
+      raison:coop?String(o.raison_sociale||o.nom||"").trim():"", rccm:String(o.rccm||"").trim(),
+      statutEntreprise:"", dfe:"", agrement:"",
+      tel:tel, tel2:tel2.length===10?tel2:"",
+      piece:{type:optionImport("fPieceType",String(o.piece_type||"").trim()), numero:String(o.piece_numero||"").trim(), expire:""},
+      cooperative:coop?"":String(o.cooperative||"").trim(),
+      ville:String(o.village||"").trim(), annee:coop?null:(nombre(o.annee_culture)||null),
+      plantation:{superficie:coop?null:nombre(o.superficie_ha), anneeCreation:nombre(o.annee_creation)||null,
+        pieds:nombre(o.nombre_pieds)||null, foncier:optionImport("fFoncier",String(o.statut_foncier||"").trim()), foncierNum:String(o.num_doc_foncier||"").trim()},
+      note:String(o.observations||"").trim(),
+      geo:(lat!=null&&lng!=null&&!isNaN(lat)&&!isNaN(lng))?{lat:lat,lng:lng}:null,
+      paiement:{mode:mode,
+        mm:{operateur:operateurImport(o.operateur_mm), numero:telImport(o.numero_mm,[]), titulaire:mode==="banque"?"":String(o.titulaire||"").trim()},
+        banque:{nom:String(o.banque||"").trim(), swift:String(o.swift||"").trim().toUpperCase(),
+          iban:String(o.iban||"").trim().toUpperCase().replace(/\s+/g," "), titulaire:mode==="banque"?String(o.titulaire||"").trim():""}},
+      photo:null, docs:[]
+    };
+    if(coop){ if(!f.raison) err.push("raison sociale manquante"); }
+    else {
+      if(!f.nom) err.push("nom manquant");
+      if(!f.prenom) err.push("prénoms manquants");
+      if(!f.ville||!initiales(f.ville)) err.push("village manquant");
+      if(!f.annee||f.annee<1950||f.annee>2100) err.push("année de culture invalide");
+      if(f.plantation.superficie===null) av.push("superficie non renseignée");
+      else if(isNaN(f.plantation.superficie)||!(f.plantation.superficie>0)){ err.push("superficie invalide"); }
+    }
+    if(tel.length!==10) err.push("téléphone invalide (10 chiffres)");
+    if((o.latitude||o.longitude)&&!f.geo) av.push("coordonnées GPS ignorées");
+    if(f.plantation.superficie!=null&&isNaN(f.plantation.superficie)) f.plantation.superficie=null;
+    return {f:f, err:err, av:av,
+      codeP:String(o.code_planteur||"").trim(), codePl:String(o.code_plantation||"").trim()};
+  }
+  function normCodeP(c){
+    if(!c) return "";
+    var n=numPlanteur(c);
+    return isNaN(n)?"":fmtCodeP(n);
+  }
+  function normCodePl(c){
+    c=String(c||"").trim().toUpperCase(); if(!c) return "";
+    c=c.replace(/^PLT-?/,"");
+    return /PLT$/.test(c)?c:c+"PLT";
+  }
+  function doublonDe(f,liste){
+    return liste.filter(function(r){
+      if(f.tel&&r.tel===f.tel) return true;
+      if(f.piece.numero&&r.piece&&r.piece.numero===f.piece.numero) return true;
+      if(f.type==="planteur"&&r.type!=="cooperative"&&r.nom===f.nom&&(r.prenom||"").toLowerCase()===f.prenom.toLowerCase()
+         &&(r.ville||"").toLowerCase()===(f.ville||"").toLowerCase()) return true;
+      if(f.type==="cooperative"&&r.raison&&r.raison.toLowerCase()===f.raison.toLowerCase()) return true;
+      return false;
+    });
+  }
+  function analyserImport(rows){
+    rows=rows.filter(function(r){ return r.some(function(c){ return String(c||"").trim()!==""; }); });
+    if(rows.length<2) throw new Error("vide");
+    var ent=rows[0].map(champDe);
+    if(ent.indexOf("nom")<0&&ent.indexOf("raison_sociale")<0) throw new Error("entetes");
+    if(ent.indexOf("telephone")<0) throw new Error("entetes");
+    var vus=[], prisP={}, prisPl={};
+    records.forEach(function(r){ var n=numPlanteur(r.codePlanteur); if(!isNaN(n)) prisP[n]=1; if(r.codePlantation) prisPl[r.codePlantation]=1; });
+    IMP.lignes=rows.slice(1).map(function(r,i){
+      var o={}; ent.forEach(function(k,j){ if(k&&o[k]==null) o[k]=r[j]; });
+      var L=ficheDepuisLigne(o); L.num=i+2;
+      L.codeP=normCodeP(L.codeP); L.codePl=normCodePl(L.codePl);
+      if(L.f.type==="cooperative") L.codePl="";
+      if(L.codeP){ var n=numPlanteur(L.codeP); if(prisP[n]) L.err.push("code planteur "+L.codeP+" déjà utilisé"); else prisP[n]=1; }
+      if(L.codePl){ if(prisPl[L.codePl]) L.err.push("code plantation "+L.codePl+" déjà utilisé"); else prisPl[L.codePl]=1; }
+      if(!L.err.length){
+        var d=doublonDe(L.f,records), dv=doublonDe(L.f,vus);
+        if(d.length) L.doublon="doublon de "+d[0].codePlanteur+" — "+nomComplet(d[0]);
+        else if(dv.length) L.doublon="doublon d'une ligne précédente du fichier";
+        vus.push(L.f);
+      }
+      return L;
+    });
+  }
+  function renderImport(){
+    var L=IMP.lignes, ok=0, dbl=0, ko=0;
+    var avecDbl=$("impDoublons").checked;
+    var h='<table class="imp-t"><thead><tr><th>Ligne</th><th>Bénéficiaire</th><th>Village</th><th>Téléphone</th><th>Statut</th></tr></thead><tbody>';
+    L.forEach(function(x){
+      var st, cls;
+      if(x.err.length){ ko++; st="Rejetée : "+x.err.join(", "); cls="ko"; }
+      else if(x.doublon){ dbl++; st=(avecDbl?"Importée malgré : ":"Ignorée : ")+x.doublon; cls=avecDbl?"av":"ko"; if(avecDbl) ok++; }
+      else { ok++; st="OK"+(x.av.length?" — "+x.av.join(", "):""); cls=x.av.length?"av":"ok"; }
+      h+='<tr class="'+cls+'"><td>'+x.num+'</td><td>'+esc(nomComplet(x.f)||"—")+'</td><td>'+esc(x.f.ville||"—")+
+        '</td><td>'+esc(formatTel(x.f.tel)||"—")+'</td><td>'+esc(st)+'</td></tr>';
+    });
+    h+='</tbody></table>';
+    $("impApercu").innerHTML=h;
+    $("impResume").textContent=L.length+" ligne(s) lue(s) : "+ok+" à importer, "+dbl+" doublon(s), "+ko+" rejetée(s).";
+    $("impGo").disabled=!ok;
+    $("impGo").textContent="Importer "+ok+" fiche"+(ok>1?"s":"");
+  }
+  function executerImport(){
+    var avecDbl=$("impDoublons").checked, moi=SEC.user(), faits=[], stop=null;
+    for(var i=0;i<IMP.lignes.length;i++){
+      var x=IMP.lignes[i];
+      if(x.err.length||(x.doublon&&!avecDbl)) continue;
+      var codeP=x.codeP;
+      if(!codeP){
+        codeP=prochainCodePlanteur();
+        if(moi && moi.plage && numPlanteur(codeP)>=moi.plage.max){ stop="Plage de codes épuisée ("+moi.plage.min+" – "+moi.plage.max+")"; break; }
+      }
+      var ord=null, codePl="";
+      if(x.f.type!=="cooperative"){
+        if(x.codePl){ codePl=x.codePl; var m=/-([0-9]+)(?:PLT)?$/i.exec(codePl); ord=m?parseInt(m[1],10):null; }
+        else { ord=prochainOrdre(x.f.ville,x.f.annee); codePl=codePlantation(x.f.ville,x.f.annee,ord); }
+      }
+      var maintenant=new Date().toISOString();
+      var rec=Object.assign({},x.f,{id:uid(), codePlanteur:codeP, ordre:ord, codePlantation:codePl,
+        agent:moi?moi.login:"", paiements:[], importe:true, cree:maintenant, modifie:maintenant});
+      records.push(rec); faits.push(rec);
+      var n=numPlanteur(codeP); if(!x.codeP && n+1>nextPlanteur) nextPlanteur=n+1;
+      if(ord!=null && !x.codePl && ord+1>nextOrdre) nextOrdre=ord+1;
+    }
+    recalerCompteurs();
+    persistAll(); syncCounters(); majTout();
+    fermerImport();
+    if(faits.length) toast(faits.length+" fiche(s) importée(s) : "+faits[0].codePlanteur+(faits.length>1?" → "+faits[faits.length-1].codePlanteur:"")+(stop?" — "+stop:""), !!stop);
+    else toast(stop||"Aucune fiche importée", true);
+    if(typeof allerOnglet==="function") allerOnglet("registre");
+  }
+  function ouvrirImport(){
+    IMP.lignes=[]; $("impApercu").innerHTML=""; $("impResume").textContent="Aucun fichier choisi.";
+    $("impGo").disabled=true; $("impGo").textContent="Importer"; $("impDoublons").checked=false;
+    $("ovImport").classList.add("show");
+  }
+  function fermerImport(){ $("ovImport").classList.remove("show"); }
+  function modeleImport(){
+    var ex=["planteur","KOUASSI","Yao Jean","","","0707070707","","CNI","CI001234567","COOP AGRI","Godo","2024","2,5","2024","1100",
+      "Certificat foncier","","5.12345","-7.54321","mm","Orange Money","0707070707","Kouassi Yao Jean","","","","", "",""];
+    var ex2=["cooperative","","","SCOOP EXEMPLE","CI-ABJ-2020-B-1234","0505050505","","","","","Guiglo","","","","","","","","","especes","","","","","","","","",""];
+    var lignes=[IMP_COLS.join(";"),ex.map(csvCell).join(";"),ex2.map(csvCell).join(";")];
+    dl("﻿"+lignes.join("\r\n"),"modele_import_planteurs.csv","text/csv;charset=utf-8");
+  }
+  $("btnImportPl").onclick=ouvrirImport;
+  $("impClose").onclick=fermerImport;
+  $("impModele").onclick=modeleImport;
+  $("impChoisir").onclick=function(){ $("impFile").click(); };
+  $("impDoublons").addEventListener("change",function(){ if(IMP.lignes.length) renderImport(); });
+  $("impGo").onclick=executerImport;
+  $("impFile").addEventListener("change",function(){
+    var file=this.files[0]; this.value=""; if(!file) return;
+    $("impResume").textContent="Lecture de "+file.name+"…";
+    lireFichierImport(file).then(function(rows){ analyserImport(rows); renderImport(); }).catch(function(e){
+      IMP.lignes=[]; $("impApercu").innerHTML=""; $("impGo").disabled=true;
+      var m=e&&e.message;
+      $("impResume").textContent = m==="entetes" ? "En-têtes non reconnus : le fichier doit contenir au moins les colonnes nom (ou raison_sociale) et telephone. Utilisez le modèle."
+        : m==="vide" ? "Le fichier ne contient aucune ligne de données."
+        : m==="xls-binaire" ? "Ancien format .xls non lisible : enregistrez le fichier en .xlsx ou en CSV depuis Excel."
+        : m==="xlsx-non-supporte" ? "Ce navigateur ne sait pas lire les .xlsx : enregistrez le fichier en CSV."
+        : "Fichier illisible. Utilisez le modèle CSV ou un fichier Excel .xlsx.";
+    });
+  });
+
 
   $("btnCounters").onclick=function(){ var p=$("countersPanel"); p.style.display=p.style.display==="none"?"block":"none"; };
   $("cPlanteur").addEventListener("change",function(){ var v=parseInt(this.value,10); if(v>=1){ nextPlanteur=v; persistAll(); refreshPreview(); } });
