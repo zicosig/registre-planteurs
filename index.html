@@ -909,6 +909,11 @@ window.__APP__=function(){
   function fmtDate(iso){ if(!iso) return "—"; var d=new Date(iso); if(isNaN(d)) return iso; return d.toLocaleDateString("fr-FR"); }
   function fmtTaille(o){ if(o<1024) return o+" o"; if(o<1048576) return (o/1024).toFixed(0)+" Ko"; return (o/1048576).toFixed(1)+" Mo"; }
   function codePlantation(ville,annee,ordre){ var i=initiales(ville); if(!i||!annee) return ""; return i+"-"+annee+"-"+pad5(ordre)+"PLT"; }
+  /* « KOUADIO KOUAKOU » -> « Kouadio Kouakou », « N'GUESSAN » -> « N'Guessan », « JEAN-MARC » -> « Jean-Marc » */
+  function casseNom(v){
+    return String(v==null?"":v).trim().replace(/\s+/g," ").toLocaleLowerCase("fr-FR")
+      .replace(/(^|[\s\-'’])(\p{L})/gu, function(m,sep,l){ return sep+l.toLocaleUpperCase("fr-FR"); });
+  }
   function nomComplet(r){ return r.type==="cooperative" ? (r.raison||"") : ((r.nom||"")+" "+(r.prenom||"")).trim(); }
 
   function toast(msg,warn){
@@ -1104,7 +1109,7 @@ window.__APP__=function(){
   function readForm(){
     return {
       type:typeBenef,
-      nom:val("fNom").toUpperCase(), prenom:val("fPrenom"), raison:val("fRaison"), rccm:val("fRccm"),
+      nom:casseNom(val("fNom")), prenom:casseNom(val("fPrenom")), raison:val("fRaison"), rccm:val("fRccm"),
       statutEntreprise:val("fStatutEntreprise"), dfe:val("fDfe"), agrement:val("fAgrement"),
       tel:nettoyageTel(val("fTel")), tel2:nettoyageTel(val("fTel2")),
       piece:{type:val("fPieceType"), numero:val("fPieceNum"), expire:val("fPieceExp")},
@@ -1708,11 +1713,57 @@ window.__APP__=function(){
     if(!estAdminApp()){ toast("Réservé à l'administrateur",true); return; }
     var ov=$("adminOverlay");
     var c=$("adminClose"); if(c) c.onclick=fermerAdmin;
+    var ra=$("btnResetAll"); if(ra) ra.onclick=reinitialiserRegistre;
     ov.onclick=function(e){ if(e.target===ov) fermerAdmin(); };
     ov.style.display="flex";
     rendreDashboard(); chargerAgents();
   }
   function fermerAdmin(){ $("adminOverlay").style.display="none"; }
+
+  /* Efface toutes les fiches (planteurs, coopératives, paiements, pièces jointes)
+     sur le serveur ET sur cet appareil, puis remet les compteurs de codes à 1.
+     Sur le serveur, les fiches sont marquées « supprimées » : les autres téléphones
+     les retirent d'eux-mêmes à leur prochaine synchronisation. */
+  function reinitialiserRegistre(){
+    if(!estAdminApp()){ toast("Réservé à l'administrateur",true); return; }
+    var nP=records.filter(function(r){return (r.type||"planteur")!=="cooperative";}).length;
+    var nC=records.length-nP;
+    var mot=prompt("ATTENTION — opération irréversible.\n\n"+
+      "Seront effacés : "+nP+" planteur(s), "+nC+" coopérative(s), leurs paiements et documents,"+
+      " sur cet appareil et sur le serveur. Les codes repartiront de "+fmtCodeP(1)+".\n\n"+
+      "Faites d'abord une sauvegarde si vous voulez garder une trace.\n\n"+
+      "Pour confirmer, tapez EFFACER :");
+    if(mot===null) return;
+    if(mot.trim().toUpperCase()!=="EFFACER"){ toast("Mot de confirmation incorrect — rien n'a été effacé",true); return; }
+    var b=$("btnResetAll"); if(b){ b.disabled=true; b.textContent="Effacement en cours…"; }
+    var serveur = window.reinitialiserServeur ? window.reinitialiserServeur() : Promise.reject(new Error("Serveur non disponible"));
+    serveur.then(function(n){
+      return viderLocal().then(function(){ return n; });
+    }).then(function(n){
+      if(b){ b.disabled=false; b.textContent="Effacer tout le registre"; }
+      fermerAdmin();
+      alert("Registre vidé.\n"+n+" fiche(s) retirée(s) du serveur, cet appareil est vide.\n"+
+            "Le prochain planteur recevra le code "+fmtCodeP(1)+".\n\n"+
+            "Sur les autres téléphones : appuyez sur « Synchroniser » pour qu'ils se vident aussi.");
+    }).catch(function(e){
+      if(b){ b.disabled=false; b.textContent="Effacer tout le registre"; }
+      alert("Effacement interrompu, rien n'a été effacé sur cet appareil.\n\nRaison : "+(e.message||e)+
+            "\n\nVérifiez la connexion internet puis recommencez.");
+    });
+  }
+  function viderLocal(){
+    records=[]; nextPlanteur=1; nextOrdre=1;
+    save(KEY_DATA,records); save(KEY_NP,nextPlanteur); save(KEY_NO,nextOrdre); save(KEY_DRAFT,null);
+    if(window.SEC && SEC.flush) SEC.flush();
+    resetForm(false); syncCounters(); majTout();
+    return new Promise(function(res){
+      if(!DB) return res();
+      try{
+        var t=DB.transaction("files","readwrite"); t.objectStore("files").clear();
+        t.oncomplete=function(){res();}; t.onerror=function(){res();};
+      }catch(e){ res(); }
+    });
+  }
 
   function syncCounters(){ $("cPlanteur").value=nextPlanteur; $("cOrdre").value=nextOrdre; }
 
@@ -2708,7 +2759,7 @@ window.__APP__=function(){
     var lat=nombre(o.latitude), lng=nombre(o.longitude);
     var f={
       type:coop?"cooperative":"planteur",
-      nom:coop?"":String(o.nom||"").trim().toUpperCase(), prenom:coop?"":String(o.prenoms||"").trim(),
+      nom:coop?"":casseNom(o.nom), prenom:coop?"":casseNom(o.prenoms),
       raison:coop?String(o.raison_sociale||o.nom||"").trim():"", rccm:String(o.rccm||"").trim(),
       statutEntreprise:"", dfe:"", agrement:"",
       tel:tel, tel2:tel2.length===10?tel2:"",
@@ -3659,6 +3710,7 @@ window.__APP__=function(){
     f.codePlanteur = ligne.code_planteur;
     f.codePlantation = ligne.code_plantation;
     f.modifie = ligne.modifie_le;
+    if (ligne.supprime) f.supprime = true;
     return f;
   }
 
@@ -3741,6 +3793,32 @@ window.__APP__=function(){
   });
 
   window.synchroniserPlanteurs = synchroniser;
+
+  /* Marque comme supprimées toutes les fiches de l'organisation sur le serveur.
+     Renvoie le nombre de fiches concernées. */
+  window.reinitialiserServeur = function () {
+    if (!sb()) return Promise.reject(new Error("Client Supabase absent"));
+    var maintenant = new Date().toISOString(), p;
+    return session().then(profil).then(function (pr) {
+      p = pr;
+      return sb().from("planteurs").select("id", { count: "exact", head: true })
+        .eq("organisation_id", p.organisation_id).eq("supprime", false);
+    }).then(function (r) {
+      if (r.error) throw new Error(r.error.message);
+      var attendu = r.count || 0;
+      return sb().from("planteurs")
+        .update({ supprime: true, modifie_le: maintenant })
+        .eq("organisation_id", p.organisation_id).eq("supprime", false)
+        .select("id").then(function (u) {
+          if (u.error) throw new Error(u.error.message);
+          var n = (u.data || []).length;
+          if (n < attendu) throw new Error("le serveur n'a autorisé que " + n + " suppression(s) sur " + attendu +
+            " (droits insuffisants). Effacez les fiches depuis le tableau Supabase.");
+          SEC.set(K_SYNC, maintenant);
+          return n;
+        });
+    });
+  };
 })();
 </script>
 <script>
@@ -4138,6 +4216,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var n,r,i,a,
     </div>
     <h4>Tableau de bord</h4><div id="adminDash"></div>
     <h4 style="margin-top:18px">Agents</h4><div id="adminAgents"></div>
+    <div style="margin-top:22px;border:1px solid #c0392b;border-radius:9px;padding:12px;background:#fdf1ef">
+      <h4 style="margin:0 0 6px;color:#a93226">Zone dangereuse</h4>
+      <p class="hint" style="margin:0 0 10px">Efface toutes les fiches (planteurs, coopératives, paiements, documents) sur le serveur et sur cet appareil, et remet les codes à zéro. À utiliser pour repartir proprement après des essais.</p>
+      <button class="btn sm" id="btnResetAll" type="button" style="background:#c0392b;border-color:#c0392b;color:#fff">Effacer tout le registre</button>
+    </div>
   </div>
 </div>
 <style>
